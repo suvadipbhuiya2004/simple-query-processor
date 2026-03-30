@@ -1,0 +1,1 @@
+/usr/sbin/c++ -Wl,--dependency-file=CMakeFiles/unit_tests.dir/link.d CMakeFiles/unit_tests.dir/lexer_test.cpp.o CMakeFiles/unit_tests.dir/parser_test.cpp.o -o unit_tests  ../lib/libgtest_main.a ../libquery_engine_lib.a ../lib/libgtest.a

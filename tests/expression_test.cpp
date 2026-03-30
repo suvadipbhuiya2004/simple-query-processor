@@ -1,0 +1,61 @@
+#include <gtest/gtest.h>
+#include "execution/expression.h"
+
+TEST(ExpressionTest, ScalarLiteral) {
+    Literal lit("42");
+    Row row;
+    EXPECT_EQ(ExpressionEvaluator::eval(&lit, row), "42");
+}
+
+TEST(ExpressionTest, ScalarColumn) {
+    Column col("name");
+    Row row = {{"name", "Alice"}, {"age", "25"}};
+    EXPECT_EQ(ExpressionEvaluator::eval(&col, row), "Alice");
+}
+
+TEST(ExpressionTest, NumericComparison) {
+    auto left = std::make_unique<Literal>("10");
+    auto right = std::make_unique<Literal>("5");
+    BinaryExpr gt(std::move(left), ">", std::move(right));
+    
+    Row row;
+    EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&gt, row));
+    
+    auto left2 = std::make_unique<Literal>("10");
+    auto right2 = std::make_unique<Literal>("20");
+    BinaryExpr lt(std::move(left2), "<", std::move(right2));
+    EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&lt, row));
+}
+
+TEST(ExpressionTest, StringComparison) {
+    auto left = std::make_unique<Literal>("apple");
+    auto right = std::make_unique<Literal>("banana");
+    BinaryExpr lt(std::move(left), "<", std::move(right));
+    
+    Row row;
+    EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&lt, row));
+}
+
+TEST(ExpressionTest, Equality) {
+    auto left = std::make_unique<Literal>("test");
+    auto right = std::make_unique<Literal>("test");
+    BinaryExpr eq(std::move(left), "=", std::move(right));
+    
+    Row row;
+    EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&eq, row));
+}
+
+TEST(ExpressionTest, NotEqual) {
+    auto left = std::make_unique<Literal>("abc");
+    auto right = std::make_unique<Literal>("def");
+    BinaryExpr ne(std::move(left), "!=", std::move(right));
+    
+    Row row;
+    EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&ne, row));
+}
+
+TEST(ExpressionTest, UnknownColumn) {
+    Column col("missing");
+    Row row = {{"name", "Alice"}};
+    EXPECT_THROW(ExpressionEvaluator::eval(&col, row), std::runtime_error);
+}

@@ -1,2 +1,35 @@
-/build
+# Build directory
+/build/
+
+# CMake artifacts
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/CTestTestfile.cmake
+/Makefile
+/_deps/
+/install/
+
+# Binary and library output folders
+/bin/
+/lib/
+
+# Executables
+/query_engine
+/unit_tests
+
+# Object files and libraries
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+*.pdb
+
+# IDE and System files
+.vscode/
+.idea/
 .DS_Store
+*.swp
+*.swo
+.cache/
