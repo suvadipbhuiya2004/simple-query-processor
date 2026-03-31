@@ -1,42 +1,50 @@
-.PHONY: all build test clean run help
+.PHONY: all build unit-tests test test-verbose run rebuild clean help
 
-# Build directory
-BUILD_DIR = build
-CMAKE = cmake
+# Configuration
+BUILD_DIR  ?= build
+BUILD_TYPE ?= Release
+CMAKE      ?= cmake
+JOBS       ?= $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 1)
 
-# Default target
+UNIT_TEST_BIN ?= $(BUILD_DIR)/unit_tests
+GTEST_ARGS    ?=
+
+# Internal helpers
+_configure = $(CMAKE) -S . -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
+_build     = $(CMAKE) --build $(BUILD_DIR) -j$(JOBS)
+
+# Targets
 all: build
 
-build:
-	@echo "--- Configuring and building the project ---"
-	@$(CMAKE) -B $(BUILD_DIR) -S .
-	@$(CMAKE) --build $(BUILD_DIR) -j$(shell nproc 2>/dev/null || echo 1)
+$(BUILD_DIR)/CMakeCache.txt:
+	@$(_configure)
 
-test: build
-	@echo "--- Running unit tests ---"
-	@./$(BUILD_DIR)/tests/unit_tests
+build: $(BUILD_DIR)/CMakeCache.txt
+	@$(_build)
+
+unit-tests: $(BUILD_DIR)/CMakeCache.txt
+	@$(_build) --target unit_tests
+
+test: unit-tests
+	@GTEST_COLOR=1 $(UNIT_TEST_BIN) --gtest_color=yes --gtest_brief=1 $(GTEST_ARGS)
+
+test-verbose: unit-tests
+	@GTEST_COLOR=1 $(UNIT_TEST_BIN) --gtest_color=yes $(GTEST_ARGS)
 
 run: build
-	@echo "--- Running the query engine ---"
-	@./$(BUILD_DIR)/query_engine
+	@./$(BUILD_DIR)/query_engine $(RUN_ARGS)
+
+rebuild: clean build
 
 clean:
-	@echo "--- Cleaning up build artifacts ---"
-	@rm -rf $(BUILD_DIR)
-	@# Also clean up any artifacts left in root from previous manual CMake runs
-	@rm -rf _deps/
-	@rm -rf CMakeFiles/
-	@rm -f CMakeCache.txt
-	@rm -f cmake_install.cmake
-	@rm -f CTestTestfile.cmake
-	@rm -rf bin/
-	@rm -rf lib/
-	@echo "Done."
+	@$(CMAKE) -E rm -rf $(BUILD_DIR)
 
 help:
-	@echo "Available targets:"
-	@echo "  make        - Build the project (default)"
-	@echo "  make test   - Build and run unit tests"
-	@echo "  make run    - Build and run the main application"
-	@echo "  make clean  - Remove all build artifacts"
-	@echo "  make help   - Show this help message"
+	@echo "Targets:"
+	@echo "  build         Configure + build all targets"
+	@echo "  unit-tests    Build only the unit test binary"
+	@echo "  test          Run tests (brief mode)"
+	@echo "  test-verbose  Run tests (full output)"
+	@echo "  run           Run query_engine  (RUN_ARGS='...')"
+	@echo "  rebuild       Clean then build"
+	@echo "  clean         Remove $(BUILD_DIR)/"

@@ -62,3 +62,34 @@ TEST(ParserTest, InvalidSyntax) {
     Parser parser(tokens);
     EXPECT_THROW(parser.parse(), std::runtime_error);
 }
+
+TEST(ParserTest, SemicolonTerminator) {
+    Lexer lexer("SELECT id FROM users;");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    EXPECT_EQ(stmt.table, "users");
+    ASSERT_EQ(stmt.columns.size(), 1);
+    EXPECT_EQ(dynamic_cast<Column*>(stmt.columns[0].get())->name, "id");
+}
+
+TEST(ParserTest, AngleBracketNotEqualOperator) {
+    Lexer lexer("SELECT * FROM users WHERE age <> 30");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    ASSERT_NE(stmt.where, nullptr);
+    auto* binaryExpr = dynamic_cast<BinaryExpr*>(stmt.where.get());
+    ASSERT_NE(binaryExpr, nullptr);
+    EXPECT_EQ(binaryExpr->op, "<>");
+}
+
+TEST(ParserTest, LimitOutOfRange) {
+    Lexer lexer("SELECT * FROM users LIMIT 999999999999999999999999");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    EXPECT_THROW(parser.parse(), std::runtime_error);
+}

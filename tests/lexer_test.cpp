@@ -60,3 +60,33 @@ TEST(LexerTest, UnterminatedString) {
     Lexer lexer("SELECT * FROM users WHERE city = 'London");
     EXPECT_THROW(lexer.tokenize(), std::runtime_error);
 }
+
+TEST(LexerTest, SemicolonTerminator) {
+    Lexer lexer("SELECT name FROM users;");
+    auto tokens = lexer.tokenize();
+
+    ASSERT_EQ(tokens.size(), 5);
+    EXPECT_EQ(tokens[0].type, TokenType::SELECT);
+    EXPECT_EQ(tokens[1].value, "name");
+    EXPECT_EQ(tokens[2].type, TokenType::FROM);
+    EXPECT_EQ(tokens[3].value, "users");
+    EXPECT_EQ(tokens[4].type, TokenType::END);
+}
+
+TEST(LexerTest, EscapedSingleQuote) {
+    Lexer lexer("SELECT * FROM users WHERE city = 'O''Reilly'");
+    auto tokens = lexer.tokenize();
+
+    ASSERT_EQ(tokens.size(), 9);
+    EXPECT_EQ(tokens[7].type, TokenType::STRING);
+    EXPECT_EQ(tokens[7].value, "O'Reilly");
+}
+
+TEST(LexerTest, AngleBracketNotEqual) {
+    Lexer lexer("SELECT * FROM users WHERE age <> 30");
+    auto tokens = lexer.tokenize();
+
+    ASSERT_EQ(tokens.size(), 9);
+    EXPECT_EQ(tokens[6].type, TokenType::OP);
+    EXPECT_EQ(tokens[6].value, "<>");
+}
