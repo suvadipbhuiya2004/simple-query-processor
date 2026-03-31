@@ -1,23 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
-project(QueryEngine LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+project(QueryEngine VERSION 1.0.0 LANGUAGES CXX)
 
-# --- Google Test setup ---
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
-  DOWNLOAD_EXTRACT_TIMESTAMP ON
-)
-# For Windows: prevent overriding the parent project's compiler/linker settings
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# --- Main target ---
-add_library(query_engine_lib
+include(CTest)
+
+set(QUERY_ENGINE_SOURCES
     src/parser/ast.cpp
     src/parser/lexer.cpp
     src/parser/parser.cpp
@@ -32,10 +21,9 @@ add_library(query_engine_lib
     src/execution/executor_builder.cpp
 )
 
-target_include_directories(query_engine_lib PUBLIC include)
-
-add_executable(query_engine main.cpp)
-target_link_libraries(query_engine PRIVATE query_engine_lib)
+add_library(query_engine_lib ${QUERY_ENGINE_SOURCES})
+target_compile_features(query_engine_lib PUBLIC cxx_std_17)
+target_include_directories(query_engine_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if(MSVC)
     target_compile_options(query_engine_lib PRIVATE /W4 /permissive-)
@@ -43,6 +31,31 @@ else()
     target_compile_options(query_engine_lib PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-# --- Tests ---
-enable_testing()
-add_subdirectory(tests)
+add_executable(query_engine main.cpp)
+target_link_libraries(query_engine PRIVATE query_engine_lib)
+
+if(BUILD_TESTING)
+    include(FetchContent)
+
+    # For Windows: prevent overriding the parent project's compiler/linker settings.
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
+        DOWNLOAD_EXTRACT_TIMESTAMP ON
+    )
+    FetchContent_MakeAvailable(googletest)
+
+    set(QUERY_ENGINE_TEST_SOURCES
+        tests/lexer_test.cpp
+        tests/parser_test.cpp
+        tests/execution_test.cpp
+        tests/expression_test.cpp
+    )
+
+    add_executable(unit_tests ${QUERY_ENGINE_TEST_SOURCES})
+    target_link_libraries(unit_tests PRIVATE GTest::gtest_main query_engine_lib)
+
+    include(GoogleTest)
+    gtest_discover_tests(unit_tests)
+endif()

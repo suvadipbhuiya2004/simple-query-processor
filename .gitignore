@@ -1,14 +1,20 @@
-# Build directory
+# Build directories
 /build/
+/build-*/
 
-# CMake artifacts
-/CMakeFiles/
-/CMakeCache.txt
-/cmake_install.cmake
-/CTestTestfile.cmake
-/Makefile
-/_deps/
-/install/
+# CMake generated files
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+CMakeFiles/
+Testing/
+_deps/
+install/
+compile_commands.json
+
+# GoogleTest discovery generated files
+unit_tests*_include.cmake
+unit_tests*_tests.cmake
 
 # Binary and library output folders
 /bin/
@@ -26,10 +32,14 @@
 *.dylib
 *.pdb
 
-# IDE and System files
-.vscode/
+# IDE and system files
 .idea/
 .DS_Store
 *.swp
 *.swo
 .cache/
+
+# Keep only required VS Code workspace config files
+.vscode/
+!.vscode/settings.json
+!.vscode/c_cpp_properties.json

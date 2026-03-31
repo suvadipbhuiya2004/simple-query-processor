@@ -5,6 +5,8 @@
 #include "execution/executor_builder.h"
 #include "storage/table.h"
 
+#include <unordered_set>
+
 class ExecutionTest : public ::testing::Test {
 protected:
     Database db;
@@ -86,4 +88,28 @@ TEST_F(ExecutionTest, UnsupportedLimit) {
 
     Planner planner;
     EXPECT_THROW(planner.createPlan(stmt), std::runtime_error);
+}
+
+TEST_F(ExecutionTest, FilterNotEqualAliasOperator) {
+    Lexer lexer("SELECT name FROM users WHERE age <> 30");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::unordered_set<std::string> names;
+    while (executor->next(row)) {
+        names.insert(row.at("name"));
+    }
+    executor->close();
+
+    EXPECT_EQ(names.size(), 2);
+    EXPECT_TRUE(names.count("Alice"));
+    EXPECT_TRUE(names.count("Charlie"));
 }

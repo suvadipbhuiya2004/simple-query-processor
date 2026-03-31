@@ -59,3 +59,26 @@ TEST(ExpressionTest, UnknownColumn) {
     Row row = {{"name", "Alice"}};
     EXPECT_THROW(ExpressionEvaluator::eval(&col, row), std::runtime_error);
 }
+
+TEST(ExpressionTest, GreaterEqualAndLessEqual) {
+    auto geLeft = std::make_unique<Literal>("10");
+    auto geRight = std::make_unique<Literal>("10");
+    BinaryExpr ge(std::move(geLeft), ">=", std::move(geRight));
+
+    auto leLeft = std::make_unique<Literal>("3");
+    auto leRight = std::make_unique<Literal>("5");
+    BinaryExpr le(std::move(leLeft), "<=", std::move(leRight));
+
+    Row row;
+    EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&ge, row));
+    EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&le, row));
+}
+
+TEST(ExpressionTest, AngleBracketNotEqualAlias) {
+    auto left = std::make_unique<Literal>("alice");
+    auto right = std::make_unique<Literal>("bob");
+    BinaryExpr ne(std::move(left), "<>", std::move(right));
+
+    Row row;
+    EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&ne, row));
+}

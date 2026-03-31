@@ -1,63 +1,46 @@
 # Simple Query Processor
 
-implemented these layers
+Implements a minimal SQL pipeline in three layers:
+```
+Parser → AST → Planner → Plan Tree → Execution
+```
 
-- Parser -> AST
-- Planner -> Plan Tree
-- Execution Layer
-
-
-## Supported Query Shape
-
-Current syntax:
-
+## Supported Syntax
 ```sql
 SELECT <column_list | *> FROM <table> [WHERE <expr>]
 ```
-
-Examples:
-
 ```sql
+SELECT * FROM users;
 SELECT name FROM users WHERE age > 30;
 SELECT name, age FROM users WHERE age >= 35;
 SELECT name, city, department FROM users WHERE salary > 90000;
-SELECT * FROM users;
 ```
 
-Supported WHERE comparison operators:
+Supported WHERE operators: `=` `==` `!=` `<>` `>` `<` `>=` `<=`
 
-- `=` / `==`
-- `!=` / `<>`
-- `>`
-- `<`
-- `>=`
-- `<=`
-
-
-## Build And Run
-
-From project root:
-
+## Build & Run
 ```bash
-cmake -S . -B build
-cmake --build build
-./build/query_engine
+make run                                          # build and run
+make run RUN_ARGS='"SELECT name FROM users"'      # with a custom query
 ```
 
-Run with a custom query:
-
+Or manually:
 ```bash
-./build/query_engine "SELECT name, age FROM users WHERE age >= 35"
+cmake -S . -B build && cmake --build build
+./build/query_engine "SELECT name FROM users WHERE age >= 35"
 ```
 
+## Tests
+```bash
+make test          # brief mode — failures + summary
+make test-verbose  # full per-test output
+```
 
+## Not Yet Supported
 
-## Not Added Yet
-
-These are left for future extension:
-
-- Joins
-- Grouping/Aggregation
-- Multi-table planning
-- Advanced expression grammar (AND/OR precedence, parentheses)
-- ORDER BY/LIMIT physical operators
+- `JOIN` across multiple tables
+- `GROUP BY` / aggregation functions
+- `ORDER BY` / `LIMIT`
+- `AND` / `OR` with parenthesised expressions
+- Optimization
+- And more if time permits
