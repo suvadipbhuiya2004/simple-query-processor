@@ -47,4 +47,7 @@ help:
 	@echo "  test-verbose  Run tests (full output)"
 	@echo "  run           Run query_engine  (RUN_ARGS='...')"
 	@echo "  rebuild       Clean then build"
-	@echo "  clean         Remove $(BUILD_DIR)/"
+	@echo "  clean         Remove $(BUILD_DIR)/" 
+
+ci: clean build test-verbose
+	@echo "CI pipeline steps completed successfully."
