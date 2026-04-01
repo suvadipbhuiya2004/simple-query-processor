@@ -32,7 +32,7 @@ test-verbose: unit-tests
 	@GTEST_COLOR=1 $(UNIT_TEST_BIN) --gtest_color=yes $(GTEST_ARGS)
 
 run: build
-	@./$(BUILD_DIR)/query_engine $(RUN_ARGS)
+	@./$(BUILD_DIR)/query_engine
 
 rebuild: clean build
 
@@ -45,7 +45,7 @@ help:
 	@echo "  unit-tests    Build only the unit test binary"
 	@echo "  test          Run tests (brief mode)"
 	@echo "  test-verbose  Run tests (full output)"
-	@echo "  run           Run query_engine  (RUN_ARGS='...')"
+	@echo "  run           Run query_engine using queries.sql"
 	@echo "  rebuild       Clean then build"
 	@echo "  clean         Remove $(BUILD_DIR)/" 
 
