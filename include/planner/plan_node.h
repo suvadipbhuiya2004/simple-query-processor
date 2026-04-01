@@ -8,7 +8,8 @@
 enum class PlanType {
     SEQ_SCAN,
     FILTER,
-    PROJECTION
+    PROJECTION,
+    AGGREGATION
 };
 
 class PlanNode {
@@ -45,4 +46,16 @@ public:
     std::vector<std::unique_ptr<Expr>> columns;
 
     explicit ProjectionNode(std::vector<std::unique_ptr<Expr>> cols);
+};
+
+class AggregationNode : public PlanNode {
+public:
+    std::vector<std::unique_ptr<Expr>> groupExprs;
+    std::unique_ptr<Expr> havingExpr;
+
+    AggregationNode(std::vector<std::unique_ptr<Expr>> group_exprs,
+                    std::unique_ptr<Expr> having_expr)
+        : PlanNode(PlanType::AGGREGATION), 
+          groupExprs(std::move(group_exprs)),
+          havingExpr(std::move(having_expr)) {}
 };

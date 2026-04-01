@@ -38,5 +38,7 @@ struct SelectStmt {
     std::string table;
     std::unique_ptr<Expr> where;
     std::string orderBy;
+    std::vector<std::unique_ptr<Expr>> groupBy;
+    std::unique_ptr<Expr> having;
     int limit = -1;
 };

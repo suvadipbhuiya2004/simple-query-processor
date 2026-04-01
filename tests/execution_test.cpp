@@ -13,9 +13,9 @@ protected:
 
     void SetUp() override {
         Table users;
-        users.push_back({{"id", "1"}, {"name", "Alice"}, {"age", "25"}});
-        users.push_back({{"id", "2"}, {"name", "Bob"}, {"age", "30"}});
-        users.push_back({{"id", "3"}, {"name", "Charlie"}, {"age", "20"}});
+        users.push_back({{"id", "1"}, {"name", "Alice"}, {"age", "25"}, {"department", "Engineering"}});
+        users.push_back({{"id", "2"}, {"name", "Bob"}, {"age", "30"}, {"department", "Sales"}});
+        users.push_back({{"id", "3"}, {"name", "Charlie"}, {"age", "20"}, {"department", "Engineering"}});
         db.tables["users"] = std::move(users);
     }
 };
@@ -112,4 +112,55 @@ TEST_F(ExecutionTest, FilterNotEqualAliasOperator) {
     EXPECT_EQ(names.size(), 2);
     EXPECT_TRUE(names.count("Alice"));
     EXPECT_TRUE(names.count("Charlie"));
+}
+
+TEST_F(ExecutionTest, GroupBySingleColumn) {
+    Lexer lexer("SELECT department FROM users GROUP BY department");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::unordered_set<std::string> departments;
+    while (executor->next(row)) {
+        departments.insert(row.at("department"));
+    }
+    executor->close();
+
+    // Engineering and Sales should be the only two unique departments returned
+    EXPECT_EQ(departments.size(), 2);
+    EXPECT_TRUE(departments.count("Engineering"));
+    EXPECT_TRUE(departments.count("Sales"));
+}
+
+TEST_F(ExecutionTest, GroupByWithHaving) {
+    // Note: If your engine doesn't support strings with single quotes yet, 
+    // change 'Engineering' to "Engineering" depending on your Lexer's string rules.
+    Lexer lexer("SELECT department FROM users GROUP BY department HAVING department = 'Engineering'");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    // Only Engineering should pass the HAVING filter
+    EXPECT_EQ(results.size(), 1);
+    EXPECT_EQ(results[0].at("department"), "Engineering");
 }

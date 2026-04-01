@@ -61,6 +61,9 @@ Token Lexer::identifier() {
     if (upper == "ORDER") return {TokenType::ORDER, upper};
     if (upper == "BY") return {TokenType::BY, upper};
     if (upper == "LIMIT") return {TokenType::LIMIT, upper};
+    if (upper == "GROUP") return {TokenType::GROUP, upper};
+    if (upper == "BY") return {TokenType::BY, upper};
+    if (upper == "HAVING") return {TokenType::HAVING, upper};
 
     return {TokenType::IDENT, value};
 }

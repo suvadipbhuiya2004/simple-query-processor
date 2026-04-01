@@ -35,6 +35,10 @@ std::string TokenTypeToString(TokenType type) {
             return "STAR";
         case TokenType::END:
             return "END";
+        case TokenType::GROUP:  
+            return "GROUP";  
+        case TokenType::HAVING: 
+            return "HAVING";
     }
 
     return "UNKNOWN";
@@ -68,6 +72,20 @@ SelectStmt Parser::parse() {
     return stmt;
 }
 
+std::vector<std::unique_ptr<Expr>> Parser::parseGroupBy() {
+    std::vector<std::unique_ptr<Expr>> cols;
+
+    while (true) {
+        cols.push_back(std::make_unique<Column>(consume(TokenType::IDENT).value));
+
+        if (peek().type == TokenType::COMMA) {
+            consume(TokenType::COMMA);
+        } else break;
+    }
+
+    return cols;
+}
+
 SelectStmt Parser::parseSelect() {
     consume(TokenType::SELECT);
 
@@ -77,12 +95,25 @@ SelectStmt Parser::parseSelect() {
     std::string table = consume(TokenType::IDENT).value;
 
     std::unique_ptr<Expr> where = nullptr;
+    std::vector<std::unique_ptr<Expr>> groupBy;  
+    std::unique_ptr<Expr> having = nullptr;
     std::string orderBy;
     int limit = -1;
 
     if (peek().type == TokenType::WHERE) {
         consume(TokenType::WHERE);
         where = parseExpression();
+    }
+
+    if (peek().type == TokenType::GROUP) {
+        consume(TokenType::GROUP);             
+        consume(TokenType::BY);                
+        groupBy = parseGroupBy();                
+    }
+
+    if (peek().type == TokenType::HAVING) {
+        consume(TokenType::HAVING);
+        having = parseExpression();
     }
 
     if (peek().type == TokenType::ORDER) {
@@ -110,7 +141,16 @@ SelectStmt Parser::parseSelect() {
         limit = static_cast<int>(parsedLimit);
     }
 
-    return {std::move(columns), table, std::move(where), orderBy, limit};
+    SelectStmt stmt;
+    stmt.columns = std::move(columns);
+    stmt.table = std::move(table);
+    stmt.where = std::move(where);
+    stmt.groupBy = std::move(groupBy);
+    stmt.having = std::move(having);
+    stmt.orderBy = std::move(orderBy);
+    stmt.limit = limit;
+
+    return stmt;
 }
 
 std::vector<std::unique_ptr<Expr>> Parser::parseColumns() {

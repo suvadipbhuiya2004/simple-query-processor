@@ -50,6 +50,25 @@ std::unique_ptr<PlanNode> Planner::createPlan(const SelectStmt& stmt) {
         current = std::move(filter);
     }
 
+    // GROUP
+    if (!stmt.groupBy.empty()) {
+        std::vector<std::unique_ptr<Expr>> groupExprs;
+        for (const auto& expr : stmt.groupBy) {
+            groupExprs.push_back(expr->clone());
+        }
+        
+        std::unique_ptr<Expr> havingExpr = (stmt.having) ? stmt.having->clone() : nullptr;
+
+        // Use 'AggregationNode' to match the expected symbol
+        auto aggNode = std::make_unique<AggregationNode>(
+            std::move(groupExprs), 
+            std::move(havingExpr)
+        );
+        
+        aggNode->children.push_back(std::move(current));
+        current = std::move(aggNode);
+    }
+
     // Step 3: SELECT -> Projection
     auto projection = std::make_unique<ProjectionNode>(CloneExprList(stmt.columns));
     projection->children.push_back(std::move(current));

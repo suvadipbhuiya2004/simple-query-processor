@@ -19,6 +19,7 @@ set(QUERY_ENGINE_SOURCES
     src/execution/filter_executor.cpp
     src/execution/projection_executor.cpp
     src/execution/executor_builder.cpp
+    src/execution/aggregation_executor.cpp
 )
 
 add_library(query_engine_lib ${QUERY_ENGINE_SOURCES})
