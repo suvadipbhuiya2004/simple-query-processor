@@ -18,16 +18,34 @@ SELECT name, city, department FROM users WHERE salary > 90000;
 
 Supported WHERE operators: `=` `==` `!=` `<>` `>` `<` `>=` `<=`
 
+## Data Files
+
+- Table files use a `.db` extension (example: `data/users.db`).
+- File content is still CSV-formatted internally.
+
 ## Build & Run
 ```bash
-make run                                          # build and run
-make run RUN_ARGS='"SELECT name FROM users"'      # with a custom query
+make run                                # build and run using queries.sql
 ```
 
-Or manually:
-```bash
-cmake -S . -B build && cmake --build build
-./build/query_engine "SELECT name FROM users WHERE age >= 35"
+The executable reads one or more SQL statements from `queries.sql` and executes them in order.
+
+Output is printed in relation-style table form with a tuple count, for example:
+
+```text
+name  | age
+------+----
+John  |  65
+Anita |  28
+
+(2 tuples)
+```
+
+Example `queries.sql`:
+
+```sql
+SELECT name FROM users WHERE age >= 35;
+SELECT name, city FROM users WHERE salary > 100000;
 ```
 
 ## Tests

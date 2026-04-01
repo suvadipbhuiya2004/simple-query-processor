@@ -13,8 +13,11 @@ using Table = std::vector<Row>;
 class Database {
 public:
     std::unordered_map<std::string, Table> tables;
+    std::unordered_map<std::string, std::vector<std::string>> schemas;
 
     bool hasTable(const std::string& name) const;
     Table& getTable(const std::string& name);
     const Table& getTable(const std::string& name) const;
+    bool hasSchema(const std::string& name) const;
+    const std::vector<std::string>& getSchema(const std::string& name) const;
 };
