@@ -21,4 +21,5 @@ private:
     std::vector<std::unique_ptr<Expr>> parseColumns();
     std::unique_ptr<Expr> parseExpression();
     std::unique_ptr<Expr> parseTerm();
+    std::vector<std::unique_ptr<Expr>> parseGroupBy();
 };

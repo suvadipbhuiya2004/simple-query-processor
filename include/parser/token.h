@@ -7,6 +7,8 @@ enum class TokenType {
     FROM, 
     WHERE, 
     ORDER, 
+    GROUP,
+    HAVING,
     BY, 
     LIMIT,
     NUMBER, 

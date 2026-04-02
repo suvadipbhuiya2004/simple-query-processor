@@ -3,6 +3,7 @@
 #include "execution/filter_executor.h"
 #include "execution/projection_executor.h"
 #include "execution/seq_scan_executor.h"
+#include "execution/aggregation_executor.h"
 
 #include <stdexcept>
 #include <utility>
@@ -77,6 +78,17 @@ std::unique_ptr<Executor> ExecutorBuilder::build(const PlanNode* plan, Database&
 
         auto child = build(plan->children[0].get(), db);
         return std::make_unique<ProjectionExecutor>(std::move(child), std::move(projectedColumns), selectAll);
+    }
+
+    // Add this before the final 'Unknown plan node' error
+    if (plan->type == PlanType::AGGREGATION) {
+        const auto* node = dynamic_cast<const AggregationNode*>(plan);
+        if (node == nullptr) {
+            throw std::runtime_error("Plan type mismatch: expected AggregationNode");
+        }
+        
+        auto child = build(plan->children[0].get(), db);
+        return std::make_unique<AggregationExecutor>(std::move(child), node);
     }
 
     throw std::runtime_error("Unknown plan node");
