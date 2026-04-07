@@ -90,3 +90,16 @@ TEST(LexerTest, AngleBracketNotEqual) {
     EXPECT_EQ(tokens[6].type, TokenType::OP);
     EXPECT_EQ(tokens[6].value, "<>");
 }
+
+TEST(LexerTest, AndOrParentheses) {
+    Lexer lexer("WHERE (age > 20 AND city = 'Delhi') OR status = 'Active'");
+    auto tokens = lexer.tokenize();
+
+    // WHERE, (, age, >, 20, AND, city, =, 'Delhi', ), OR, status, =, 'Active', END
+    ASSERT_EQ(tokens.size(), 15);
+    EXPECT_EQ(tokens[0].type, TokenType::WHERE);
+    EXPECT_EQ(tokens[1].type, TokenType::LPAREN);
+    EXPECT_EQ(tokens[5].type, TokenType::AND);
+    EXPECT_EQ(tokens[9].type, TokenType::RPAREN);
+    EXPECT_EQ(tokens[10].type, TokenType::OR);
+}

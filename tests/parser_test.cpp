@@ -93,3 +93,39 @@ TEST(ParserTest, LimitOutOfRange) {
 
     EXPECT_THROW(parser.parse(), std::runtime_error);
 }
+
+TEST(ParserTest, PrecedenceAndParentheses) {
+    // AND has higher precedence than OR
+    {
+        Lexer lexer("SELECT * FROM users WHERE a = 1 OR b = 2 AND c = 3");
+        auto tokens = lexer.tokenize();
+        Parser parser(tokens);
+        auto stmt = parser.parse();
+        
+        // Should be (a=1) OR ((b=2) AND (c=3))
+        auto* orExpr = dynamic_cast<BinaryExpr*>(stmt.where.get());
+        ASSERT_NE(orExpr, nullptr);
+        EXPECT_EQ(orExpr->op, "OR");
+        
+        auto* andExpr = dynamic_cast<BinaryExpr*>(orExpr->right.get());
+        ASSERT_NE(andExpr, nullptr);
+        EXPECT_EQ(andExpr->op, "AND");
+    }
+
+    // Parentheses override precedence
+    {
+        Lexer lexer("SELECT * FROM users WHERE (a = 1 OR b = 2) AND c = 3");
+        auto tokens = lexer.tokenize();
+        Parser parser(tokens);
+        auto stmt = parser.parse();
+        
+        // Should be ((a=1) OR (b=2)) AND (c=3)
+        auto* andExpr = dynamic_cast<BinaryExpr*>(stmt.where.get());
+        ASSERT_NE(andExpr, nullptr);
+        EXPECT_EQ(andExpr->op, "AND");
+        
+        auto* orExpr = dynamic_cast<BinaryExpr*>(andExpr->left.get());
+        ASSERT_NE(orExpr, nullptr);
+        EXPECT_EQ(orExpr->op, "OR");
+    }
+}

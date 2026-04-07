@@ -11,11 +11,15 @@ enum class TokenType {
     HAVING,
     BY, 
     LIMIT,
+    AND,
+    OR,
     NUMBER, 
     STRING,
     OP, 
     COMMA, 
     STAR,
+    LPAREN,
+    RPAREN,
     IDENT, 
     END
 };

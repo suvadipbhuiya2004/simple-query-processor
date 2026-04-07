@@ -164,3 +164,32 @@ TEST_F(ExecutionTest, GroupByWithHaving) {
     EXPECT_EQ(results.size(), 1);
     EXPECT_EQ(results[0].at("department"), "Engineering");
 }
+
+TEST_F(ExecutionTest, ComplexFilterQuery) {
+    // (Engineering AND age > 22) OR name = 'Bob'
+    // Alice: Engineering, 25 -> Matches first part
+    // Bob: Sales, 30 -> Matches second part
+    // Charlie: Engineering, 20 -> Matches neither
+    Lexer lexer("SELECT name FROM users WHERE (department = 'Engineering' AND age > 22) OR name = 'Bob'");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::unordered_set<std::string> names;
+    while (executor->next(row)) {
+        names.insert(row.at("name"));
+    }
+    executor->close();
+
+    EXPECT_EQ(names.size(), 2);
+    EXPECT_TRUE(names.count("Alice"));
+    EXPECT_TRUE(names.count("Bob"));
+    EXPECT_FALSE(names.count("Charlie"));
+}

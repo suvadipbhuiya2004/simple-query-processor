@@ -59,6 +59,5 @@ make test-verbose  # full per-test output
 - `JOIN` across multiple tables
 - `GROUP BY` / aggregation functions
 - `ORDER BY` / `LIMIT`
-- `AND` / `OR` with parenthesised expressions
 - Optimization
 - And more if time permits

@@ -21,6 +21,10 @@ std::string TokenTypeToString(TokenType type) {
             return "BY";
         case TokenType::LIMIT:
             return "LIMIT";
+        case TokenType::AND:
+            return "AND";
+        case TokenType::OR:
+            return "OR";
         case TokenType::IDENT:
             return "IDENT";
         case TokenType::NUMBER:
@@ -33,6 +37,10 @@ std::string TokenTypeToString(TokenType type) {
             return "COMMA";
         case TokenType::STAR:
             return "STAR";
+        case TokenType::LPAREN:
+            return "LPAREN";
+        case TokenType::RPAREN:
+            return "RPAREN";
         case TokenType::END:
             return "END";
         case TokenType::GROUP:  
@@ -174,10 +182,37 @@ std::vector<std::unique_ptr<Expr>> Parser::parseColumns() {
 }
 
 std::unique_ptr<Expr> Parser::parseExpression() {
-    // Current grammar supports chained binary comparisons only.
+    return parseOr();
+}
+
+std::unique_ptr<Expr> Parser::parseOr() {
+    auto left = parseAnd();
+
+    while (pos < tokens.size() && peek().type == TokenType::OR) {
+        consume(TokenType::OR);
+        auto right = parseAnd();
+        left = std::make_unique<BinaryExpr>(std::move(left), "OR", std::move(right));
+    }
+
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseAnd() {
+    auto left = parseComparison();
+
+    while (pos < tokens.size() && peek().type == TokenType::AND) {
+        consume(TokenType::AND);
+        auto right = parseComparison();
+        left = std::make_unique<BinaryExpr>(std::move(left), "AND", std::move(right));
+    }
+
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseComparison() {
     auto left = parseTerm();
 
-    while (peek().type == TokenType::OP) {
+    if (pos < tokens.size() && peek().type == TokenType::OP) {
         std::string op = consume(TokenType::OP).value;
         auto right = parseTerm();
         left = std::make_unique<BinaryExpr>(std::move(left), op, std::move(right));
@@ -189,7 +224,13 @@ std::unique_ptr<Expr> Parser::parseExpression() {
 std::unique_ptr<Expr> Parser::parseTerm() {
     const Token& t = peek();
 
-    if (t.type == TokenType::IDENT) {
+    if (t.type == TokenType::LPAREN) {
+        consume(TokenType::LPAREN);
+        auto expr = parseExpression();
+        consume(TokenType::RPAREN);
+        return expr;
+    }
+    else if (t.type == TokenType::IDENT) {
         return std::make_unique<Column>(consume(TokenType::IDENT).value);
     }
     else if (t.type == TokenType::NUMBER || t.type == TokenType::STRING) {

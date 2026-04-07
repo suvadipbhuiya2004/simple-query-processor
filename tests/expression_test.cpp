@@ -82,3 +82,31 @@ TEST(ExpressionTest, AngleBracketNotEqualAlias) {
     Row row;
     EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&ne, row));
 }
+
+TEST(ExpressionTest, BooleanLogic) {
+    Row row = {{"a", "1"}, {"b", "0"}};
+    
+    // (a = 1) AND (b = 0) -> TRUE
+    {
+        auto left = std::make_unique<BinaryExpr>(std::make_unique<Column>("a"), "=", std::make_unique<Literal>("1"));
+        auto right = std::make_unique<BinaryExpr>(std::make_unique<Column>("b"), "=", std::make_unique<Literal>("0"));
+        BinaryExpr andExpr(std::move(left), "AND", std::move(right));
+        EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&andExpr, row));
+    }
+    
+    // (a = 0) AND (b = 0) -> FALSE
+    {
+        auto left = std::make_unique<BinaryExpr>(std::make_unique<Column>("a"), "=", std::make_unique<Literal>("0"));
+        auto right = std::make_unique<BinaryExpr>(std::make_unique<Column>("b"), "=", std::make_unique<Literal>("0"));
+        BinaryExpr andExpr(std::move(left), "AND", std::move(right));
+        EXPECT_FALSE(ExpressionEvaluator::evalPredicate(&andExpr, row));
+    }
+    
+    // (a = 0) OR (b = 0) -> TRUE
+    {
+        auto left = std::make_unique<BinaryExpr>(std::make_unique<Column>("a"), "=", std::make_unique<Literal>("0"));
+        auto right = std::make_unique<BinaryExpr>(std::make_unique<Column>("b"), "=", std::make_unique<Literal>("0"));
+        BinaryExpr orExpr(std::move(left), "OR", std::move(right));
+        EXPECT_TRUE(ExpressionEvaluator::evalPredicate(&orExpr, row));
+    }
+}

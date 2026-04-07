@@ -64,6 +64,8 @@ Token Lexer::identifier() {
     if (upper == "GROUP") return {TokenType::GROUP, upper};
     if (upper == "BY") return {TokenType::BY, upper};
     if (upper == "HAVING") return {TokenType::HAVING, upper};
+    if (upper == "AND") return {TokenType::AND, upper};
+    if (upper == "OR") return {TokenType::OR, upper};
 
     return {TokenType::IDENT, value};
 }
@@ -132,6 +134,12 @@ std::vector<Token> Lexer::tokenize() {
         } else if (c == '*') {
             advance();
             tokens.push_back({TokenType::STAR, "*"});
+        } else if (c == '(') {
+            advance();
+            tokens.push_back({TokenType::LPAREN, "("});
+        } else if (c == ')') {
+            advance();
+            tokens.push_back({TokenType::RPAREN, ")"});
         } else if (c == ';') {
             // Optional statement terminator.
             advance();
