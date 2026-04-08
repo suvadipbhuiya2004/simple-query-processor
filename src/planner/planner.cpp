@@ -30,14 +30,6 @@ std::unique_ptr<PlanNode> Planner::createPlan(const SelectStmt& stmt) {
         throw std::runtime_error("SELECT list cannot be empty");
     }
 
-    if (!stmt.orderBy.empty()) {
-        throw std::runtime_error("ORDER BY is parsed but not yet supported by planner/execution layer");
-    }
-
-    if (stmt.limit >= 0) {
-        throw std::runtime_error("LIMIT is parsed but not yet supported by planner/execution layer");
-    }
-
     // Step 1: Base scan node
     auto scan = std::make_unique<SeqScanNode>(stmt.table);
 
@@ -69,7 +61,21 @@ std::unique_ptr<PlanNode> Planner::createPlan(const SelectStmt& stmt) {
         current = std::move(aggNode);
     }
 
-    // Step 3: SELECT -> Projection
+    // Step 3: ORDER BY -> Sort
+    if (!stmt.orderBy.empty()) {
+        auto sort = std::make_unique<SortNode>(stmt.orderBy);
+        sort->children.push_back(std::move(current));
+        current = std::move(sort);
+    }
+
+    // Step 4: LIMIT -> Limit
+    if (stmt.limit >= 0) {
+        auto limit = std::make_unique<LimitNode>(stmt.limit);
+        limit->children.push_back(std::move(current));
+        current = std::move(limit);
+    }
+
+    // Step 5: SELECT -> Projection
     auto projection = std::make_unique<ProjectionNode>(CloneExprList(stmt.columns));
     projection->children.push_back(std::move(current));
 

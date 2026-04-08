@@ -13,3 +13,9 @@ FilterNode::FilterNode(std::unique_ptr<Expr> pred)
 
 ProjectionNode::ProjectionNode(std::vector<std::unique_ptr<Expr>> cols)
     : PlanNode(PlanType::PROJECTION), columns(std::move(cols)) {}
+
+SortNode::SortNode(std::string column)
+    : PlanNode(PlanType::SORT), orderByColumn(std::move(column)) {}
+
+LimitNode::LimitNode(int count)
+    : PlanNode(PlanType::LIMIT), limitCount(count) {}

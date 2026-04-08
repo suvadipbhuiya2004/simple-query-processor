@@ -7,13 +7,14 @@ Parser → AST → Planner → Plan Tree → Execution
 
 ## Supported Syntax
 ```sql
-SELECT <column_list | *> FROM <table> [WHERE <expr>]
+SELECT <column_list | *> FROM <table> [WHERE <expr>] [GROUP BY <columns>] [HAVING <expr>] [ORDER BY <column>] [LIMIT <n>]
 ```
 ```sql
 SELECT * FROM users;
 SELECT name FROM users WHERE age > 30;
 SELECT name, age FROM users WHERE age >= 35;
 SELECT name, city, department FROM users WHERE salary > 90000;
+SELECT name FROM users ORDER BY age LIMIT 2;
 ```
 
 Supported WHERE operators: `=` `==` `!=` `<>` `>` `<` `>=` `<=`
@@ -58,6 +59,5 @@ make test-verbose  # full per-test output
 
 - `JOIN` across multiple tables
 - `GROUP BY` / aggregation functions
-- `ORDER BY` / `LIMIT`
 - Optimization
 - And more if time permits

@@ -70,24 +70,99 @@ TEST_F(ExecutionTest, FilterQuery) {
     }
 }
 
-TEST_F(ExecutionTest, UnsupportedOrderBy) {
+TEST_F(ExecutionTest, OrderByAscending) {
     Lexer lexer("SELECT * FROM users ORDER BY age");
     auto tokens = lexer.tokenize();
     Parser parser(tokens);
     auto stmt = parser.parse();
 
     Planner planner;
-    EXPECT_THROW(planner.createPlan(stmt), std::runtime_error);
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    ASSERT_EQ(results.size(), 3);
+    EXPECT_EQ(results[0].at("name"), "Charlie");
+    EXPECT_EQ(results[1].at("name"), "Alice");
+    EXPECT_EQ(results[2].at("name"), "Bob");
 }
 
-TEST_F(ExecutionTest, UnsupportedLimit) {
-    Lexer lexer("SELECT * FROM users LIMIT 10");
+TEST_F(ExecutionTest, LimitRowCount) {
+    Lexer lexer("SELECT * FROM users LIMIT 2");
     auto tokens = lexer.tokenize();
     Parser parser(tokens);
     auto stmt = parser.parse();
 
     Planner planner;
-    EXPECT_THROW(planner.createPlan(stmt), std::runtime_error);
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    EXPECT_EQ(results.size(), 2);
+}
+
+TEST_F(ExecutionTest, OrderByWithLimit) {
+    Lexer lexer("SELECT name FROM users ORDER BY age LIMIT 2");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    ASSERT_EQ(results.size(), 2);
+    ASSERT_EQ(results[0].size(), 1);
+    ASSERT_EQ(results[1].size(), 1);
+    EXPECT_EQ(results[0].at("name"), "Charlie");
+    EXPECT_EQ(results[1].at("name"), "Alice");
+}
+
+TEST_F(ExecutionTest, LimitZeroReturnsNoRows) {
+    Lexer lexer("SELECT * FROM users LIMIT 0");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    EXPECT_TRUE(results.empty());
 }
 
 TEST_F(ExecutionTest, FilterNotEqualAliasOperator) {

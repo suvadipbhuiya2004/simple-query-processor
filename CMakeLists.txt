@@ -18,6 +18,8 @@ set(QUERY_ENGINE_SOURCES
     src/execution/seq_scan_executor.cpp
     src/execution/filter_executor.cpp
     src/execution/projection_executor.cpp
+    src/execution/sort_executor.cpp
+    src/execution/limit_executor.cpp
     src/execution/executor_builder.cpp
     src/execution/aggregation_executor.cpp
 )
