@@ -1,6 +1,8 @@
 #pragma once
 #include "execution/executor.h"
 
+#include <cstddef>
+
 // Emits at most N rows from child executor.
 class LimitExecutor : public Executor {
 private:

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <stdexcept>
@@ -34,8 +35,10 @@ bool TryParseInt64(const std::string& value, int64_t& out) {
 int CompareValues(const std::string& left, const std::string& right) {
     int64_t leftInt = 0;
     int64_t rightInt = 0;
+    const bool leftIsNumber = TryParseInt64(left, leftInt);
+    const bool rightIsNumber = TryParseInt64(right, rightInt);
 
-    if (TryParseInt64(left, leftInt) && TryParseInt64(right, rightInt)) {
+    if (leftIsNumber && rightIsNumber) {
         if (leftInt < rightInt) {
             return -1;
         }
@@ -43,6 +46,11 @@ int CompareValues(const std::string& left, const std::string& right) {
             return 1;
         }
         return 0;
+    }
+
+    // Keep a deterministic total order for mixed types: numeric values first.
+    if (leftIsNumber != rightIsNumber) {
+        return leftIsNumber ? -1 : 1;
     }
 
     const int cmp = left.compare(right);

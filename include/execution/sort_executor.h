@@ -1,6 +1,8 @@
 #pragma once
 #include "execution/executor.h"
 
+#include <cstddef>
+#include <string>
 #include <vector>
 
 // Buffers all child rows and emits them sorted by one column.
