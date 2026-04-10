@@ -1,8 +1,10 @@
 #include "execution/executor_builder.h"
 
 #include "execution/filter_executor.h"
+#include "execution/limit_executor.h"
 #include "execution/projection_executor.h"
 #include "execution/seq_scan_executor.h"
+#include "execution/sort_executor.h"
 #include "execution/aggregation_executor.h"
 
 #include <stdexcept>
@@ -80,11 +82,43 @@ std::unique_ptr<Executor> ExecutorBuilder::build(const PlanNode* plan, Database&
         return std::make_unique<ProjectionExecutor>(std::move(child), std::move(projectedColumns), selectAll);
     }
 
+    if (plan->type == PlanType::SORT) {
+        const auto* node = dynamic_cast<const SortNode*>(plan);
+        if (node == nullptr) {
+            throw std::runtime_error("Plan type mismatch: expected SortNode");
+        }
+        if (plan->children.size() != 1U) {
+            throw std::runtime_error("Sort node must have exactly one child");
+        }
+
+        auto child = build(plan->children[0].get(), db);
+        return std::make_unique<SortExecutor>(std::move(child), node->orderByColumn);
+    }
+
+    if (plan->type == PlanType::LIMIT) {
+        const auto* node = dynamic_cast<const LimitNode*>(plan);
+        if (node == nullptr) {
+            throw std::runtime_error("Plan type mismatch: expected LimitNode");
+        }
+        if (plan->children.size() != 1U) {
+            throw std::runtime_error("Limit node must have exactly one child");
+        }
+        if (node->limitCount < 0) {
+            throw std::runtime_error("Limit node cannot have a negative LIMIT value");
+        }
+
+        auto child = build(plan->children[0].get(), db);
+        return std::make_unique<LimitExecutor>(std::move(child), static_cast<size_t>(node->limitCount));
+    }
+
     // Add this before the final 'Unknown plan node' error
     if (plan->type == PlanType::AGGREGATION) {
         const auto* node = dynamic_cast<const AggregationNode*>(plan);
         if (node == nullptr) {
             throw std::runtime_error("Plan type mismatch: expected AggregationNode");
+        }
+        if (plan->children.size() != 1U) {
+            throw std::runtime_error("Aggregation node must have exactly one child");
         }
         
         auto child = build(plan->children[0].get(), db);
