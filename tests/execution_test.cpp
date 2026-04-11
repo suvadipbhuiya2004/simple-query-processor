@@ -70,24 +70,99 @@ TEST_F(ExecutionTest, FilterQuery) {
     }
 }
 
-TEST_F(ExecutionTest, UnsupportedOrderBy) {
+TEST_F(ExecutionTest, OrderByAscending) {
     Lexer lexer("SELECT * FROM users ORDER BY age");
     auto tokens = lexer.tokenize();
     Parser parser(tokens);
     auto stmt = parser.parse();
 
     Planner planner;
-    EXPECT_THROW(planner.createPlan(stmt), std::runtime_error);
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    ASSERT_EQ(results.size(), 3);
+    EXPECT_EQ(results[0].at("name"), "Charlie");
+    EXPECT_EQ(results[1].at("name"), "Alice");
+    EXPECT_EQ(results[2].at("name"), "Bob");
 }
 
-TEST_F(ExecutionTest, UnsupportedLimit) {
-    Lexer lexer("SELECT * FROM users LIMIT 10");
+TEST_F(ExecutionTest, LimitRowCount) {
+    Lexer lexer("SELECT * FROM users LIMIT 2");
     auto tokens = lexer.tokenize();
     Parser parser(tokens);
     auto stmt = parser.parse();
 
     Planner planner;
-    EXPECT_THROW(planner.createPlan(stmt), std::runtime_error);
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    EXPECT_EQ(results.size(), 2);
+}
+
+TEST_F(ExecutionTest, OrderByWithLimit) {
+    Lexer lexer("SELECT name FROM users ORDER BY age LIMIT 2");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    ASSERT_EQ(results.size(), 2);
+    ASSERT_EQ(results[0].size(), 1);
+    ASSERT_EQ(results[1].size(), 1);
+    EXPECT_EQ(results[0].at("name"), "Charlie");
+    EXPECT_EQ(results[1].at("name"), "Alice");
+}
+
+TEST_F(ExecutionTest, LimitZeroReturnsNoRows) {
+    Lexer lexer("SELECT * FROM users LIMIT 0");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    EXPECT_TRUE(results.empty());
 }
 
 TEST_F(ExecutionTest, FilterNotEqualAliasOperator) {
@@ -166,6 +241,9 @@ TEST_F(ExecutionTest, GroupByWithHaving) {
 }
 
 TEST_F(ExecutionTest, AggregateSumAndCount) {
+    // We expect Alice (25) and Charlie (20) to be grouped in Engineering.
+    // Engineering: Sum = 45, Count = 2.
+    // Sales: Sum = 30, Count = 1.
     Lexer lexer("SELECT department, SUM(age), COUNT(id) FROM users GROUP BY department");
     auto tokens = lexer.tokenize();
     Parser parser(tokens);
@@ -190,11 +268,39 @@ TEST_F(ExecutionTest, AggregateSumAndCount) {
         if (r.at("department") == "Engineering") {
             // Use stod() to handle trailing zeros in SUM strings (e.g., "45.000000")
             EXPECT_NEAR(std::stod(r.at("SUM_age")), 45.0, 0.001);
-            // Ensure this key matches your AggregationExecutor key (SUM_age, COUNT_id)
             EXPECT_EQ(r.at("COUNT_id"), "2"); 
         } else if (r.at("department") == "Sales") {
             EXPECT_NEAR(std::stod(r.at("SUM_age")), 30.0, 0.001);
             EXPECT_EQ(r.at("COUNT_id"), "1");
         }
     }
+}
+
+TEST_F(ExecutionTest, ComplexFilterQuery) {
+    // (Engineering AND age > 22) OR name = 'Bob'
+    // Alice: Engineering, 25 -> Matches first part
+    // Bob: Sales, 30 -> Matches second part
+    // Charlie: Engineering, 20 -> Matches neither
+    Lexer lexer("SELECT name FROM users WHERE (department = 'Engineering' AND age > 22) OR name = 'Bob'");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::unordered_set<std::string> names;
+    while (executor->next(row)) {
+        names.insert(row.at("name"));
+    }
+    executor->close();
+
+    EXPECT_EQ(names.size(), 2);
+    EXPECT_TRUE(names.count("Alice"));
+    EXPECT_TRUE(names.count("Bob"));
+    EXPECT_FALSE(names.count("Charlie"));
 }

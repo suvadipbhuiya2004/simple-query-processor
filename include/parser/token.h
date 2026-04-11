@@ -11,20 +11,22 @@ enum class TokenType {
     HAVING,
     BY, 
     LIMIT,
+    AND,
+    OR,
     NUMBER, 
     STRING,
     OP, 
     COMMA, 
     STAR,
+    LPAREN,
+    RPAREN,
     IDENT, 
     END,
     SUM,
     AVG,
     COUNT,
     MIN,
-    MAX,
-    LPAREN,  
-    RPAREN
+    MAX
 };
 
 struct Token {

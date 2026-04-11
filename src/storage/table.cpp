@@ -25,3 +25,16 @@ const Table& Database::getTable(const std::string& name) const {
 
     return it->second;
 }
+
+bool Database::hasSchema(const std::string& name) const {
+    return schemas.find(name) != schemas.end();
+}
+
+const std::vector<std::string>& Database::getSchema(const std::string& name) const {
+    const auto it = schemas.find(name);
+    if (it == schemas.end()) {
+        throw std::runtime_error("Schema not found for table: " + name);
+    }
+
+    return it->second;
+}

@@ -6,36 +6,35 @@
 #include <utility>
 #include <vector>
 
-// CSV loader used by main to bootstrap tables from files.
+// CSV parser used to bootstrap table files (stored with .db extension).
 
-Table CsvLoader::loadTable(const std::string& csvPath) {
-    std::ifstream file(csvPath);
+void CsvLoader::ParseTableFile(const std::string& tablePath, std::vector<std::string>& headers, Table& table) {
+    std::ifstream file(tablePath);
     if (!file.is_open()) {
-        throw std::runtime_error("Could not open CSV file: " + csvPath);
+        throw std::runtime_error("Could not open table file: " + tablePath);
     }
 
     std::string headerLine;
     size_t lineNumber = 0;
     while (std::getline(file, headerLine)) {
         ++lineNumber;
-        RemoveTrailingCarriageReturn(headerLine);
+        CsvLoader::RemoveTrailingCarriageReturn(headerLine);
         if (!headerLine.empty()) {
             break;
         }
     }
 
     if (headerLine.empty()) {
-        throw std::runtime_error("CSV file is empty: " + csvPath);
+        throw std::runtime_error("Table file is empty: " + tablePath);
     }
 
-    std::vector<std::string> headers = ParseLine(headerLine);
+    headers = ParseLine(headerLine);
     if (headers.empty()) {
-        throw std::runtime_error("CSV header row is empty in file: " + csvPath);
+        throw std::runtime_error("Header row is empty in table file: " + tablePath);
     }
 
     RemoveUtf8Bom(headers[0]);
-
-    Table table;
+    table.clear();
 
     std::string line;
     while (std::getline(file, line)) {
@@ -62,12 +61,21 @@ Table CsvLoader::loadTable(const std::string& csvPath) {
 
         table.push_back(std::move(row));
     }
+}
 
+Table CsvLoader::loadTable(const std::string& tablePath) {
+    std::vector<std::string> headers;
+    Table table;
+    ParseTableFile(tablePath, headers, table);
     return table;
 }
 
-void CsvLoader::loadIntoDatabase(Database& db, const std::string& tableName, const std::string& csvPath) {
-    db.tables[tableName] = loadTable(csvPath);
+void CsvLoader::loadIntoDatabase(Database& db, const std::string& tableName, const std::string& tablePath) {
+    std::vector<std::string> headers;
+    Table table;
+    ParseTableFile(tablePath, headers, table);
+    db.schemas[tableName] = std::move(headers);
+    db.tables[tableName] = std::move(table);
 }
 
 std::vector<std::string> CsvLoader::ParseLine(const std::string& line) {

@@ -24,6 +24,9 @@ private:
     SelectStmt parseSelect();
     std::vector<std::unique_ptr<Expr>> parseColumns();
     std::unique_ptr<Expr> parseExpression();
+    std::unique_ptr<Expr> parseOr();
+    std::unique_ptr<Expr> parseAnd();
+    std::unique_ptr<Expr> parseComparison();
     std::unique_ptr<Expr> parseTerm();
     std::vector<std::unique_ptr<Expr>> parseGroupBy();
 

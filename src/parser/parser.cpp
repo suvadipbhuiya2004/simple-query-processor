@@ -6,28 +6,54 @@
 namespace {
 std::string TokenTypeToString(TokenType type) {
     switch (type) {
-        case TokenType::SELECT: return "SELECT";
-        case TokenType::FROM: return "FROM";
-        case TokenType::WHERE: return "WHERE";
-        case TokenType::ORDER: return "ORDER";
-        case TokenType::BY: return "BY";
-        case TokenType::LIMIT: return "LIMIT";
-        case TokenType::IDENT: return "IDENT";
-        case TokenType::NUMBER: return "NUMBER";
-        case TokenType::STRING: return "STRING";
-        case TokenType::OP: return "OP";
-        case TokenType::COMMA: return "COMMA";
-        case TokenType::STAR: return "STAR";
-        case TokenType::END: return "END";
-        case TokenType::GROUP: return "GROUP";
-        case TokenType::HAVING: return "HAVING";
-        case TokenType::SUM: return "SUM";
-        case TokenType::AVG: return "AVG";
-        case TokenType::COUNT: return "COUNT";
-        case TokenType::MIN: return "MIN";
-        case TokenType::MAX: return "MAX";
-        case TokenType::LPAREN: return "LPAREN";
-        case TokenType::RPAREN: return "RPAREN";
+        case TokenType::GROUP: 
+            return "GROUP";
+        case TokenType::HAVING: 
+            return "HAVING";
+        case TokenType::SUM: 
+            return "SUM";
+        case TokenType::AVG: 
+            return "AVG";
+        case TokenType::COUNT: 
+            return "COUNT";
+        case TokenType::MIN: 
+            return "MIN";
+        case TokenType::MAX: 
+            return "MAX";
+        case TokenType::SELECT:
+            return "SELECT";
+        case TokenType::FROM:
+            return "FROM";
+        case TokenType::WHERE:
+            return "WHERE";
+        case TokenType::ORDER:
+            return "ORDER";
+        case TokenType::BY:
+            return "BY";
+        case TokenType::LIMIT:
+            return "LIMIT";
+        case TokenType::AND:
+            return "AND";
+        case TokenType::OR:
+            return "OR";
+        case TokenType::IDENT:
+            return "IDENT";
+        case TokenType::NUMBER:
+            return "NUMBER";
+        case TokenType::STRING:
+            return "STRING";
+        case TokenType::OP:
+            return "OP";
+        case TokenType::COMMA:
+            return "COMMA";
+        case TokenType::STAR:
+            return "STAR";
+        case TokenType::LPAREN:
+            return "LPAREN";
+        case TokenType::RPAREN:
+            return "RPAREN";
+        case TokenType::END:
+            return "END";
     }
     return "UNKNOWN";
 }
@@ -156,18 +182,52 @@ std::vector<std::unique_ptr<Expr>> Parser::parseColumns() {
 }
 
 std::unique_ptr<Expr> Parser::parseExpression() {
+    // We adopt the new upstream hierarchy for logical operators
+    return parseOr();
+}
+
+std::unique_ptr<Expr> Parser::parseOr() {
+    auto left = parseAnd();
+
+    while (pos < tokens.size() && peek().type == TokenType::OR) {
+        consume(TokenType::OR);
+        auto right = parseAnd();
+        left = std::make_unique<BinaryExpr>(std::move(left), "OR", std::move(right));
+    }
+
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseAnd() {
+    auto left = parseComparison();
+
+    while (pos < tokens.size() && peek().type == TokenType::AND) {
+        consume(TokenType::AND);
+        auto right = parseComparison();
+        left = std::make_unique<BinaryExpr>(std::move(left), "AND", std::move(right));
+    }
+
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseComparison() {
+    // This calls your existing parseTerm() which handles 
+    // AggregateExpr, Column, and Literals
     auto left = parseTerm();
-    while (peek().type == TokenType::OP) {
+
+    while (pos < tokens.size() && peek().type == TokenType::OP) {
         std::string op = consume(TokenType::OP).value;
         auto right = parseTerm();
         left = std::make_unique<BinaryExpr>(std::move(left), op, std::move(right));
     }
+
     return left;
 }
 
 std::unique_ptr<Expr> Parser::parseTerm() {
     const Token& t = peek();
 
+    // 1. Handle Aggregate Functions (Your Feature)
     if (t.type == TokenType::SUM || t.type == TokenType::AVG || 
         t.type == TokenType::COUNT || t.type == TokenType::MIN || 
         t.type == TokenType::MAX) {
@@ -186,11 +246,21 @@ std::unique_ptr<Expr> Parser::parseTerm() {
         consume(TokenType::RPAREN);
         return std::make_unique<AggregateExpr>(funcName, std::move(arg));
     }
-
-    if (t.type == TokenType::IDENT) {
+    // 2. Handle Parenthesized Expressions (Upstream Update)
+    else if (t.type == TokenType::LPAREN) {
+        consume(TokenType::LPAREN);
+        auto expr = parseExpression();
+        consume(TokenType::RPAREN);
+        return expr;
+    }
+    // 3. Handle Identifiers/Columns
+    else if (t.type == TokenType::IDENT) {
         return std::make_unique<Column>(consume(TokenType::IDENT).value);
-    } else if (t.type == TokenType::NUMBER || t.type == TokenType::STRING) {
+    }
+    // 4. Handle Literals
+    else if (t.type == TokenType::NUMBER || t.type == TokenType::STRING) {
         return std::make_unique<Literal>(consume(t.type).value);
     }
+
     throw std::runtime_error("Invalid expression starting with token: " + TokenTypeToString(t.type));
 }

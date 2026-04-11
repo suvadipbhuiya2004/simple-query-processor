@@ -9,7 +9,9 @@ enum class PlanType {
     SEQ_SCAN,
     FILTER,
     PROJECTION,
-    AGGREGATION
+    AGGREGATION,
+    SORT,
+    LIMIT
 };
 
 class PlanNode {
@@ -61,4 +63,18 @@ public:
           groupExprs(std::move(group_exprs)),
           aggregateExprs(std::move(agg_exprs)), // <-- INITIALIZE IT
           havingExpr(std::move(having_expr)) {}
+};
+
+class SortNode : public PlanNode {
+public:
+    std::string orderByColumn;
+
+    explicit SortNode(std::string column);
+};
+
+class LimitNode : public PlanNode {
+public:
+    int limitCount;
+
+    explicit LimitNode(int count);
 };

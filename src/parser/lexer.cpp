@@ -69,6 +69,8 @@ Token Lexer::identifier() {
     if (upper == "COUNT") return Token{TokenType::COUNT, upper};
     if (upper == "MIN") return Token{TokenType::MIN, upper};
     if (upper == "MAX") return Token{TokenType::MAX, upper};
+    if (upper == "AND") return {TokenType::AND, upper};
+    if (upper == "OR") return {TokenType::OR, upper};
 
     return {TokenType::IDENT, value};
 }

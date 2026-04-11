@@ -18,6 +18,13 @@ bool ExpressionEvaluator::evalPredicate(const Expr* expr, const Row& row) {
     }
 
     if (auto bin = dynamic_cast<const BinaryExpr*>(expr)) {
+        if (bin->op == "AND") {
+            return evalPredicate(bin->left.get(), row) && evalPredicate(bin->right.get(), row);
+        }
+        if (bin->op == "OR") {
+            return evalPredicate(bin->left.get(), row) || evalPredicate(bin->right.get(), row);
+        }
+
         const auto left = EvalScalar(bin->left.get(), row);
         const auto right = EvalScalar(bin->right.get(), row);
         return CompareValues(left, bin->op, right);
