@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SQL Workspace</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>SQL Workspace</h1>
+      <p>Run queries in a safe sandbox without touching main data.</p>
+    </div>
+    <div class="topbar-actions">
+      <span id="engineStatus" class="badge">checking engine...</span>
+      <button id="refreshBtn" type="button" class="secondary">Refresh</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel schema-panel">
+      <section class="schema-section">
+        <h2>Main Tables</h2>
+        <div id="mainSchema" class="schema-list scrollbox"></div>
+      </section>
+
+      <section class="schema-section">
+        <h2>Sandbox Tables</h2>
+        <div id="sandboxSchema" class="schema-list scrollbox"></div>
+      </section>
+    </aside>
+
+    <section class="panel editor-panel">
+      <header class="editor-toolbar">
+        <label for="targetDb">Target</label>
+        <select id="targetDb">
+          <option value="sandbox" selected>Sandbox (editable)</option>
+          <option value="main">Main (SELECT only)</option>
+        </select>
+        <button id="runBtn" type="button">Run SQL</button>
+        <button id="resetSandboxBtn" type="button" class="secondary">Reset Sandbox</button>
+      </header>
+
+      <section class="editor-box">
+        <h2>Input</h2>
+        <textarea id="sqlInput" spellcheck="false" placeholder="SELECT * FROM users;"></textarea>
+      </section>
+
+      <section class="output-box">
+        <h2>Output</h2>
+        <div id="outputArea" class="output-area scrollbox">
+          <div class="output-muted">Run a query to see results.</div>
+        </div>
+      </section>
+    </section>
+
+    <aside class="panel preview-panel">
+      <section class="preview-section">
+        <h2>Main Preview</h2>
+        <div id="mainPreview" class="preview-list scrollbox"></div>
+      </section>
+
+      <section class="preview-section">
+        <h2>Sandbox Preview</h2>
+        <div id="sandboxPreview" class="preview-list scrollbox"></div>
+      </section>
+    </aside>
+  </main>
+
+  <template id="tablePreviewTemplate">
+    <article class="table-preview-card">
+      <header class="table-preview-header">
+        <div class="table-preview-title"></div>
+        <div class="table-preview-meta"></div>
+      </header>
+      <div class="table-preview-grid-wrap scrollbox-inner">
+        <table class="table-grid"></table>
+      </div>
+    </article>
+  </template>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

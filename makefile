@@ -1,4 +1,4 @@
-.PHONY: all build unit-tests test test-verbose run rebuild clean help
+.PHONY: all build unit-tests test test-verbose run web-install web-run rebuild clean help
 
 # Configuration
 BUILD_DIR  ?= build
@@ -8,6 +8,9 @@ JOBS       ?= $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo
 
 UNIT_TEST_BIN ?= $(BUILD_DIR)/unit_tests
 GTEST_ARGS    ?=
+ARGS          ?=
+VENV_DIR      ?= .venv
+VENV_PY       ?= $(VENV_DIR)/bin/python3
 
 # Internal helpers
 _configure = $(CMAKE) -S . -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
@@ -32,7 +35,15 @@ test-verbose: unit-tests
 	@GTEST_COLOR=1 $(UNIT_TEST_BIN) --gtest_color=yes $(GTEST_ARGS)
 
 run: build
-	@./$(BUILD_DIR)/query_engine
+	@./$(BUILD_DIR)/query_engine $(ARGS)
+
+web-install:
+	@python3 -m venv $(VENV_DIR)
+	@$(VENV_PY) -m pip install --upgrade pip
+	@$(VENV_PY) -m pip install -r web/requirements.txt
+
+web-run: build
+	@$(VENV_PY) web/app.py
 
 rebuild: clean build
 
@@ -45,7 +56,11 @@ help:
 	@echo "  unit-tests    Build only the unit test binary"
 	@echo "  test          Run tests (brief mode)"
 	@echo "  test-verbose  Run tests (full output)"
-	@echo "  run           Run query_engine using queries.sql"
+	@echo "  run           Run query_engine using queries.sql or ARGS=..."
+	@echo "               Examples: ARGS='--repl' or ARGS='--query \"SELECT * FROM users;\"'"
+	@echo "  web-install   Install Python dependencies for web terminal"
+	@echo "  web-run       Build engine and launch the web terminal at http://127.0.0.1:5000"
+	@echo "               Uses virtual environment at $(VENV_DIR)/"
 	@echo "  rebuild       Clean then build"
 	@echo "  clean         Remove $(BUILD_DIR)/" 
 

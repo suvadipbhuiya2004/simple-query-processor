@@ -16,6 +16,8 @@
 #include "storage/table.h"
 
 namespace {
+void ExecuteQuery(const std::string& query, Database& db);
+
 std::string Trim(std::string text) {
     const std::string whitespace = " \t\n\r\f\v";
     const size_t start = text.find_first_not_of(whitespace);
@@ -36,6 +38,85 @@ std::string ReadTextFile(const std::string& path) {
     std::ostringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
+}
+
+struct CliOptions {
+    bool showHelp{false};
+    bool replMode{false};
+    std::string queryText;
+    std::string filePath;
+};
+
+void PrintUsage(const char* programName) {
+    std::cout << "Usage:\n"
+              << "  " << programName << " [--file <path>]\n"
+              << "  " << programName << " [--query <sql>]\n"
+              << "  " << programName << " [--repl]\n"
+              << "  " << programName << " [<sql-file>]\n\n"
+              << "Options:\n"
+              << "  -f, --file <path>   Run statements from a SQL file\n"
+              << "  -q, --query <sql>   Run a single SQL command or a semicolon-separated set\n"
+              << "  -i, --repl          Start an interactive SQL prompt\n"
+              << "  -h, --help          Show this help message\n\n"
+              << "Examples:\n"
+              << "  " << programName << " --query \"SELECT * FROM users;\"\n"
+              << "  " << programName << " --file queries.sql\n"
+              << "  " << programName << " queries.sql\n";
+}
+
+CliOptions ParseCommandLine(int argc, char* argv[]) {
+    CliOptions options;
+
+    for (int i = 1; i < argc; ++i) {
+        const std::string argument = argv[i];
+
+        if (argument == "-h" || argument == "--help") {
+            options.showHelp = true;
+            continue;
+        }
+
+        if (argument == "-i" || argument == "--repl") {
+            if (!options.queryText.empty() || !options.filePath.empty() || options.replMode) {
+                throw std::runtime_error("Use only one input mode: --query, --file, --repl, or a positional file path");
+            }
+            options.replMode = true;
+            continue;
+        }
+
+        if (argument == "-q" || argument == "--query") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("Missing SQL text after --query");
+            }
+            if (!options.queryText.empty() || !options.filePath.empty() || options.replMode) {
+                throw std::runtime_error("Use only one input mode: --query, --file, --repl, or a positional file path");
+            }
+            options.queryText = argv[++i];
+            continue;
+        }
+
+        if (argument == "-f" || argument == "--file") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("Missing file path after --file");
+            }
+            if (!options.queryText.empty() || !options.filePath.empty() || options.replMode) {
+                throw std::runtime_error("Use only one input mode: --query, --file, --repl, or a positional file path");
+            }
+            options.filePath = argv[++i];
+            continue;
+        }
+
+        if (!argument.empty() && argument.front() == '-') {
+            throw std::runtime_error("Unknown command line option: " + argument);
+        }
+
+        if (!options.queryText.empty() || !options.filePath.empty() || options.replMode) {
+            throw std::runtime_error("Use only one input mode: --query, --file, --repl, or a positional file path");
+        }
+
+        options.filePath = argument;
+    }
+
+    return options;
 }
 
 std::vector<std::string> SplitSqlStatements(const std::string& sqlContent) {
@@ -118,11 +199,32 @@ std::vector<std::string> SplitSqlStatements(const std::string& sqlContent) {
     return statements;
 }
 
-std::string ResolveSqlFilePath(int argc, char* argv[]) {
-    (void)argv;
+std::vector<std::string> LoadQueriesFromFile(const std::string& sqlFilePath) {
+    const std::string sqlContent = ReadTextFile(sqlFilePath);
+    std::vector<std::string> queries = SplitSqlStatements(sqlContent);
 
-    if (argc != 1) {
-        throw std::runtime_error("Custom query input is disabled. Put one or more statements in queries.sql and run without arguments.");
+    if (queries.empty()) {
+        throw std::runtime_error("No executable SQL statements found in file: " + sqlFilePath);
+    }
+
+    return queries;
+}
+
+std::vector<std::string> LoadQueriesFromCli(const CliOptions& options) {
+    if (!options.queryText.empty()) {
+        std::vector<std::string> queries = SplitSqlStatements(options.queryText);
+        if (queries.empty()) {
+            throw std::runtime_error("No executable SQL statements found in --query input");
+        }
+        return queries;
+    }
+
+    if (!options.filePath.empty()) {
+        return LoadQueriesFromFile(options.filePath);
+    }
+
+    if (options.replMode) {
+        return {};
     }
 
     const std::vector<std::string> candidatePaths = {
@@ -133,23 +235,67 @@ std::string ResolveSqlFilePath(int argc, char* argv[]) {
     for (const auto& path : candidatePaths) {
         std::ifstream file(path);
         if (file.is_open()) {
-            return path;
+            return LoadQueriesFromFile(path);
         }
     }
 
     throw std::runtime_error("Could not find queries.sql. Create it in project root or run from build directory.");
 }
 
-std::vector<std::string> LoadQueries(int argc, char* argv[]) {
-    const std::string sqlFilePath = ResolveSqlFilePath(argc, argv);
-    const std::string sqlContent = ReadTextFile(sqlFilePath);
-    std::vector<std::string> queries = SplitSqlStatements(sqlContent);
+void ExecuteSqlStatements(const std::vector<std::string>& queries, Database& db) {
+    for (size_t i = 0; i < queries.size(); ++i) {
+        ExecuteQuery(queries[i], db);
 
-    if (queries.empty()) {
-        throw std::runtime_error("No executable SQL statements found in file: " + sqlFilePath);
+        if (i + 1 < queries.size()) {
+            std::cout << '\n';
+        }
     }
+}
 
-    return queries;
+void RunRepl(Database& db) {
+    std::cout << "Simple Query Processor REPL\n"
+              << "Type SQL and end each statement with ';'. Type 'quit' or 'exit' to leave.\n";
+
+    std::string buffer;
+    std::string line;
+
+    while (true) {
+        std::cout << (buffer.empty() ? "sql> " : "...> ") << std::flush;
+
+        if (!std::getline(std::cin, line)) {
+            std::cout << "\n";
+            break;
+        }
+
+        const std::string trimmedLine = Trim(line);
+        if (buffer.empty() && (trimmedLine == "quit" || trimmedLine == "exit")) {
+            break;
+        }
+
+        if (!buffer.empty()) {
+            buffer += '\n';
+        }
+        buffer += line;
+
+        if (buffer.find(';') == std::string::npos) {
+            continue;
+        }
+
+        const std::vector<std::string> queries = SplitSqlStatements(buffer);
+        buffer.clear();
+
+        for (size_t i = 0; i < queries.size(); ++i) {
+            try {
+                ExecuteQuery(queries[i], db);
+            } catch (const std::exception& ex) {
+                std::cerr << "Query execution error: " << ex.what() << '\n';
+            }
+
+            if (i + 1 < queries.size()) {
+                std::cout << '\n';
+            }
+        }
+    }
 }
 
 bool IsSelectStar(const SelectStmt& stmt) {
@@ -327,21 +473,27 @@ void ExecuteQuery(const std::string& query, Database& db) {
 
 int main(int argc, char* argv[]) {
     try {
+        const CliOptions options = ParseCommandLine(argc, argv);
+
+        if (options.showHelp) {
+            PrintUsage(argv[0]);
+            return 0;
+        }
+
         // 1) Load sample data.
         Database db;
         LoadUsersTable(db);
 
-        // 2) Load one or more statements from a .sql file.
-        const std::vector<std::string> queries = LoadQueries(argc, argv);
+        if (options.replMode) {
+            RunRepl(db);
+            return 0;
+        }
+
+        // 2) Load one or more statements from the selected input source.
+        const std::vector<std::string> queries = LoadQueriesFromCli(options);
 
         // 3) Execute each statement in order.
-        for (size_t i = 0; i < queries.size(); ++i) {
-            ExecuteQuery(queries[i], db);
-
-            if (i + 1 < queries.size()) {
-                std::cout << '\n';
-            }
-        }
+        ExecuteSqlStatements(queries, db);
 
         return 0;
     } catch (const std::exception& ex) {
