@@ -1,4 +1,5 @@
 #include "execution/expression.h"
+#include "parser/ast.h" // Ensure ast.h is included for AggregateExpr
 
 #include <cerrno>
 #include <cstdlib>
@@ -47,6 +48,24 @@ std::string ExpressionEvaluator::EvalScalar(const Expr* expr, const Row& row) {
         return evalPredicate(bin, row) ? "1" : "0";
     }
 
+    // Integrated Aggregate lookup logic
+    if (const auto* aggExpr = dynamic_cast<const AggregateExpr*>(expr)) {
+        std::string colName = "";
+        if (aggExpr->arg) {
+             if (const auto* argCol = dynamic_cast<const Column*>(aggExpr->arg.get())) {
+                 colName = argCol->name;
+             }
+        }
+        
+        // Reconstruct the key generated in AggregationExecutor (e.g., SUM_age)
+        std::string resultKey = aggExpr->funcName + (colName.empty() ? "" : "_" + colName);
+        
+        auto it = row.find(resultKey);
+        if (it != row.end()) return it->second;
+        
+        return "0"; 
+    }
+
     throw std::runtime_error("Unsupported expression type");
 }
 
@@ -70,7 +89,6 @@ bool ExpressionEvaluator::TryParseInt64(const std::string& value, int64_t& out) 
     }
 
     out = static_cast<int64_t>(parsed);
-
     return true;
 }
 
@@ -79,7 +97,6 @@ bool ExpressionEvaluator::CompareValues(const std::string& left, const std::stri
     int64_t leftInt = 0;
     int64_t rightInt = 0;
 
-    // Try numeric compare first; fall back to lexical compare for non-numeric values.
     if (TryParseInt64(left, leftInt) && TryParseInt64(right, rightInt)) {
         if (leftInt < rightInt) {
             comparison = -1;

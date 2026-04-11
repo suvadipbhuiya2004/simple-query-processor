@@ -51,11 +51,14 @@ public:
 class AggregationNode : public PlanNode {
 public:
     std::vector<std::unique_ptr<Expr>> groupExprs;
+    std::vector<std::unique_ptr<Expr>> aggregateExprs; // <-- ADD THIS TO STORE SUM, COUNT, etc.
     std::unique_ptr<Expr> havingExpr;
 
     AggregationNode(std::vector<std::unique_ptr<Expr>> group_exprs,
+                    std::vector<std::unique_ptr<Expr>> agg_exprs, // <-- ADD TO CONSTRUCTOR
                     std::unique_ptr<Expr> having_expr)
         : PlanNode(PlanType::AGGREGATION), 
           groupExprs(std::move(group_exprs)),
+          aggregateExprs(std::move(agg_exprs)), // <-- INITIALIZE IT
           havingExpr(std::move(having_expr)) {}
 };

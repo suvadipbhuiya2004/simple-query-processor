@@ -1,17 +1,11 @@
 #include "execution/projection_executor.h"
-
+#include "execution/expression.h"
 #include <stdexcept>
-#include <utility>
 
-// Projection executor keeps selected columns from each child row.
-
-ProjectionExecutor::ProjectionExecutor(std::unique_ptr<Executor> c, std::vector<std::string> cols, bool selectAll)
-    : child(std::move(c)), columns(std::move(cols)), selectAll(selectAll) {
+ProjectionExecutor::ProjectionExecutor(std::unique_ptr<Executor> c, const ProjectionNode* node)
+    : child(std::move(c)), node(node) {
     if (!child) {
         throw std::runtime_error("ProjectionExecutor received a null child executor");
-    }
-    if (!this->selectAll && columns.empty()) {
-        throw std::runtime_error("ProjectionExecutor requires at least one projected column");
     }
 }
 
@@ -25,20 +19,33 @@ bool ProjectionExecutor::next(Row& row) {
         return false;
     }
 
-    if (selectAll) {
-        row = std::move(input);
-        return true;
+    // Special Case: Handle SELECT *
+    if (node->columns.size() == 1) {
+        if (auto col = dynamic_cast<const Column*>(node->columns[0].get())) {
+            if (col->name == "*") {
+                row = std::move(input);
+                return true;
+            }
+        }
     }
 
     Row output;
-    output.reserve(columns.size());
-
-    for (const auto& columnName : columns) {
-        const auto it = input.find(columnName);
-        if (it == input.end()) {
-            throw std::runtime_error("Column not found in row: " + columnName);
+    for (const auto& expr : node->columns) {
+        std::string value = ExpressionEvaluator::eval(expr.get(), input);
+        
+        std::string key;
+        if (auto col = dynamic_cast<const Column*>(expr.get())) {
+            key = col->name;
+        } else if (auto agg = dynamic_cast<const AggregateExpr*>(expr.get())) {
+            std::string colName = "";
+            if (agg->arg) {
+                if (auto argCol = dynamic_cast<const Column*>(agg->arg.get())) {
+                    colName = argCol->name;
+                }
+            }
+            key = agg->funcName + (colName.empty() ? "" : "_" + colName);
         }
-        output[columnName] = it->second;
+        output[key] = value;
     }
 
     row = std::move(output);

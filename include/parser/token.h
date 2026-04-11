@@ -17,7 +17,14 @@ enum class TokenType {
     COMMA, 
     STAR,
     IDENT, 
-    END
+    END,
+    SUM,
+    AVG,
+    COUNT,
+    MIN,
+    MAX,
+    LPAREN,  
+    RPAREN
 };
 
 struct Token {

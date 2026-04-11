@@ -93,3 +93,23 @@ TEST(ParserTest, LimitOutOfRange) {
 
     EXPECT_THROW(parser.parse(), std::runtime_error);
 }
+
+TEST(ParserTest, ParseAggregate) {
+    Lexer lexer("SELECT SUM(age), COUNT(*) FROM users");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    ASSERT_EQ(stmt.columns.size(), 2);
+    
+    // Verify SUM(age)
+    auto* sumExpr = dynamic_cast<AggregateExpr*>(stmt.columns[0].get());
+    ASSERT_NE(sumExpr, nullptr);
+    EXPECT_EQ(sumExpr->funcName, "SUM");
+    
+    // Verify COUNT(*)
+    auto* countExpr = dynamic_cast<AggregateExpr*>(stmt.columns[1].get());
+    ASSERT_NE(countExpr, nullptr);
+    EXPECT_EQ(countExpr->funcName, "COUNT");
+    EXPECT_EQ(countExpr->arg, nullptr); // STAR is represented by null arg
+}

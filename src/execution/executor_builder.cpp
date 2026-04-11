@@ -49,44 +49,24 @@ std::unique_ptr<Executor> ExecutorBuilder::build(const PlanNode* plan, Database&
             throw std::runtime_error("Projection node must have exactly one child");
         }
 
-        bool selectAll = false;
-        std::vector<std::string> projectedColumns;
-        projectedColumns.reserve(node->columns.size());
-
-        for (const auto& expr : node->columns) {
-            const auto* column = dynamic_cast<const Column*>(expr.get());
-            if (column == nullptr) {
-                throw std::runtime_error("Only column references are supported in SELECT list");
-            }
-
-            // SELECT * is represented as a single column named "*".
-            if (column->name == "*") {
-                if (node->columns.size() != 1U) {
-                    throw std::runtime_error("SELECT * cannot be mixed with explicit columns");
-                }
-                selectAll = true;
-                projectedColumns.clear();
-                break;
-            }
-
-            projectedColumns.push_back(column->name);
-        }
-
-        if (!selectAll && projectedColumns.empty()) {
-            throw std::runtime_error("Projection node has no columns");
-        }
-
+        // --- FIXED BLOCK ---
+        // Instead of extracting strings and throwing errors on AggregateExpr,
+        // we now pass the node directly to the ProjectionExecutor.
         auto child = build(plan->children[0].get(), db);
-        return std::make_unique<ProjectionExecutor>(std::move(child), std::move(projectedColumns), selectAll);
+        return std::make_unique<ProjectionExecutor>(std::move(child), node);
+        // -------------------
     }
 
-    // Add this before the final 'Unknown plan node' error
     if (plan->type == PlanType::AGGREGATION) {
         const auto* node = dynamic_cast<const AggregationNode*>(plan);
         if (node == nullptr) {
             throw std::runtime_error("Plan type mismatch: expected AggregationNode");
         }
         
+        if (plan->children.empty()) {
+            throw std::runtime_error("Aggregation node must have at least one child");
+        }
+
         auto child = build(plan->children[0].get(), db);
         return std::make_unique<AggregationExecutor>(std::move(child), node);
     }
