@@ -21,7 +21,12 @@ enum class TokenType {
     LPAREN,
     RPAREN,
     IDENT, 
-    END
+    END,
+    SUM,
+    AVG,
+    COUNT,
+    MIN,
+    MAX
 };
 
 struct Token {

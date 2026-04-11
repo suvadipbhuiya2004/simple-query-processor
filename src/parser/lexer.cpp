@@ -64,6 +64,11 @@ Token Lexer::identifier() {
     if (upper == "GROUP") return {TokenType::GROUP, upper};
     if (upper == "BY") return {TokenType::BY, upper};
     if (upper == "HAVING") return {TokenType::HAVING, upper};
+    if (upper == "SUM") return Token{TokenType::SUM, upper};
+    if (upper == "AVG") return Token{TokenType::AVG, upper};
+    if (upper == "COUNT") return Token{TokenType::COUNT, upper};
+    if (upper == "MIN") return Token{TokenType::MIN, upper};
+    if (upper == "MAX") return Token{TokenType::MAX, upper};
     if (upper == "AND") return {TokenType::AND, upper};
     if (upper == "OR") return {TokenType::OR, upper};
 

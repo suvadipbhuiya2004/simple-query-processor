@@ -103,3 +103,16 @@ TEST(LexerTest, AndOrParentheses) {
     EXPECT_EQ(tokens[9].type, TokenType::RPAREN);
     EXPECT_EQ(tokens[10].type, TokenType::OR);
 }
+
+TEST(LexerTest, AggregateFunctions) {
+    Lexer lexer("SELECT SUM(age), COUNT(*) FROM users");
+    auto tokens = lexer.tokenize();
+
+    // Expected: SELECT, SUM, LPAREN, IDENT(age), RPAREN, COMMA, COUNT, LPAREN, STAR, RPAREN, FROM, IDENT(users), END
+    ASSERT_EQ(tokens.size(), 13);
+    EXPECT_EQ(tokens[1].type, TokenType::SUM);
+    EXPECT_EQ(tokens[2].type, TokenType::LPAREN);
+    EXPECT_EQ(tokens[6].type, TokenType::COUNT);
+    EXPECT_EQ(tokens[8].type, TokenType::STAR);
+    EXPECT_EQ(tokens[9].type, TokenType::RPAREN);
+}

@@ -240,6 +240,42 @@ TEST_F(ExecutionTest, GroupByWithHaving) {
     EXPECT_EQ(results[0].at("department"), "Engineering");
 }
 
+TEST_F(ExecutionTest, AggregateSumAndCount) {
+    // We expect Alice (25) and Charlie (20) to be grouped in Engineering.
+    // Engineering: Sum = 45, Count = 2.
+    // Sales: Sum = 30, Count = 1.
+    Lexer lexer("SELECT department, SUM(age), COUNT(id) FROM users GROUP BY department");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    Planner planner;
+    auto plan = planner.createPlan(stmt);
+
+    auto executor = ExecutorBuilder::build(plan.get(), db);
+    executor->open();
+
+    Row row;
+    std::vector<Row> results;
+    while (executor->next(row)) {
+        results.push_back(row);
+    }
+    executor->close();
+
+    ASSERT_EQ(results.size(), 2);
+
+    for (const auto& r : results) {
+        if (r.at("department") == "Engineering") {
+            // Use stod() to handle trailing zeros in SUM strings (e.g., "45.000000")
+            EXPECT_NEAR(std::stod(r.at("SUM_age")), 45.0, 0.001);
+            EXPECT_EQ(r.at("COUNT_id"), "2"); 
+        } else if (r.at("department") == "Sales") {
+            EXPECT_NEAR(std::stod(r.at("SUM_age")), 30.0, 0.001);
+            EXPECT_EQ(r.at("COUNT_id"), "1");
+        }
+    }
+}
+
 TEST_F(ExecutionTest, ComplexFilterQuery) {
     // (Engineering AND age > 22) OR name = 'Bob'
     // Alice: Engineering, 25 -> Matches first part
