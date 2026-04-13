@@ -1,57 +1,35 @@
-#include "execution/projection_executor.h"
-#include "execution/expression.h"
+#include "execution/projection_executor.hpp"
 #include <stdexcept>
+#include <utility>
 
-ProjectionExecutor::ProjectionExecutor(std::unique_ptr<Executor> c, const ProjectionNode* node)
-    : child(std::move(c)), node(node) {
-    if (!child) {
-        throw std::runtime_error("ProjectionExecutor received a null child executor");
+ProjectionExecutor::ProjectionExecutor(std::unique_ptr<Executor> child, std::vector<std::string> columns, bool selectAll) : child_(std::move(child)), columns_(std::move(columns)), selectAll_(selectAll) {
+    if (!child_) throw std::runtime_error("ProjectionExecutor: null child executor");
+    if (!selectAll_ && columns_.empty()) {
+        throw std::runtime_error("ProjectionExecutor: no columns specified");
     }
 }
 
-void ProjectionExecutor::open() {
-    child->open();
-}
+void ProjectionExecutor::open() { child_->open(); }
+void ProjectionExecutor::close() { child_->close(); }
 
 bool ProjectionExecutor::next(Row& row) {
     Row input;
-    if (!child->next(input)) {
-        return false;
-    }
+    if (!child_->next(input)) return false;
 
-    // Special Case: Handle SELECT *
-    if (node->columns.size() == 1) {
-        if (auto col = dynamic_cast<const Column*>(node->columns[0].get())) {
-            if (col->name == "*") {
-                row = std::move(input);
-                return true;
-            }
-        }
+    if (selectAll_) {
+        row = std::move(input);
+        return true;
     }
 
     Row output;
-    for (const auto& expr : node->columns) {
-        std::string value = ExpressionEvaluator::eval(expr.get(), input);
-        
-        std::string key;
-        if (auto col = dynamic_cast<const Column*>(expr.get())) {
-            key = col->name;
-        } else if (auto agg = dynamic_cast<const AggregateExpr*>(expr.get())) {
-            std::string colName = "";
-            if (agg->arg) {
-                if (auto argCol = dynamic_cast<const Column*>(agg->arg.get())) {
-                    colName = argCol->name;
-                }
-            }
-            key = agg->funcName + (colName.empty() ? "" : "_" + colName);
+    output.reserve(columns_.size());
+    for (const auto& col : columns_) {
+        const auto it = input.find(col);
+        if (it == input.end()) {
+            throw std::runtime_error("Projected column not found in row: '" + col + "'");
         }
-        output[key] = value;
+        output.emplace(col, std::move(it->second));
     }
-
     row = std::move(output);
     return true;
-}
-
-void ProjectionExecutor::close() {
-    child->close();
 }
