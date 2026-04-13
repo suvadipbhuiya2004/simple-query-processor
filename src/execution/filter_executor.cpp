@@ -1,30 +1,19 @@
-#include "execution/filter_executor.h"
-
+#include "execution/filter_executor.hpp"
 #include <stdexcept>
 #include <utility>
 
-// Filter executor delegates row production to child and applies predicate.
-
-FilterExecutor::FilterExecutor(std::unique_ptr<Executor> c, std::unique_ptr<Expr> p)
-    : child(std::move(c)), predicate(std::move(p)) {
-    if (!child) {
-        throw std::runtime_error("FilterExecutor received a null child executor");
-    }
+FilterExecutor::FilterExecutor(std::unique_ptr<Executor> child, std::unique_ptr<Expr> predicate) : child_(std::move(child)), predicate_(std::move(predicate)) {
+    if (!child_) throw std::runtime_error("FilterExecutor: null child executor");
 }
 
-void FilterExecutor::open() {
-    child->open();
-}
+void FilterExecutor::open() { child_->open(); }
+void FilterExecutor::close() { child_->close(); }
 
 bool FilterExecutor::next(Row& row) {
-    while (child->next(row)) {
-        if (!predicate || ExpressionEvaluator::evalPredicate(predicate.get(), row)) {
+    while (child_->next(row)) {
+        if (ExpressionEvaluator::evalPredicate(predicate_.get(), row)) {
             return true;
         }
     }
     return false;
-}
-
-void FilterExecutor::close() {
-    child->close();
 }

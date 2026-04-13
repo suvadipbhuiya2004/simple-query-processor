@@ -43,3 +43,6 @@ unit_tests*_tests.cmake
 .vscode/
 !.vscode/settings.json
 !.vscode/c_cpp_properties.json
+
+
+data

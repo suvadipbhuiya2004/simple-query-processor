@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "parser/lexer.h"
+#include "parser/lexer.hpp"
 #include <vector>
 
 TEST(LexerTest, SimpleSelect) {
@@ -104,15 +104,58 @@ TEST(LexerTest, AndOrParentheses) {
     EXPECT_EQ(tokens[10].type, TokenType::OR);
 }
 
-TEST(LexerTest, AggregateFunctions) {
-    Lexer lexer("SELECT SUM(age), COUNT(*) FROM users");
+TEST(LexerTest, CreateTableStatement) {
+    Lexer lexer("CREATE TABLE students (id INT PRIMARY KEY, name VARCHAR, age INT)");
     auto tokens = lexer.tokenize();
 
-    // Expected: SELECT, SUM, LPAREN, IDENT(age), RPAREN, COMMA, COUNT, LPAREN, STAR, RPAREN, FROM, IDENT(users), END
-    ASSERT_EQ(tokens.size(), 13);
-    EXPECT_EQ(tokens[1].type, TokenType::SUM);
-    EXPECT_EQ(tokens[2].type, TokenType::LPAREN);
-    EXPECT_EQ(tokens[6].type, TokenType::COUNT);
-    EXPECT_EQ(tokens[8].type, TokenType::STAR);
-    EXPECT_EQ(tokens[9].type, TokenType::RPAREN);
+    ASSERT_EQ(tokens[0].type, TokenType::CREATE);
+    ASSERT_EQ(tokens[1].type, TokenType::TABLE);
+    ASSERT_EQ(tokens[2].type, TokenType::IDENT);
+    EXPECT_EQ(tokens[2].value, "students");
+    EXPECT_EQ(tokens[6].type, TokenType::PRIMARY);
+    EXPECT_EQ(tokens[7].type, TokenType::KEY);
+    EXPECT_EQ(tokens.back().type, TokenType::END);
+}
+
+TEST(LexerTest, InsertUpdateDeleteKeywords) {
+    {
+        Lexer lexer("INSERT INTO students (id, name) VALUES (1, 'Alice')");
+        auto tokens = lexer.tokenize();
+        ASSERT_EQ(tokens[0].type, TokenType::INSERT);
+        ASSERT_EQ(tokens[1].type, TokenType::INTO);
+        ASSERT_EQ(tokens[8].type, TokenType::VALUES);
+        EXPECT_EQ(tokens.back().type, TokenType::END);
+    }
+
+    {
+        Lexer lexer("UPDATE students SET age = 21 WHERE id = 1");
+        auto tokens = lexer.tokenize();
+        ASSERT_EQ(tokens[0].type, TokenType::UPDATE);
+        ASSERT_EQ(tokens[2].type, TokenType::SET);
+        ASSERT_EQ(tokens[6].type, TokenType::WHERE);
+        EXPECT_EQ(tokens.back().type, TokenType::END);
+    }
+
+    {
+        Lexer lexer("DELETE FROM students WHERE id = 1");
+        auto tokens = lexer.tokenize();
+        ASSERT_EQ(tokens[0].type, TokenType::DELETE_);
+        ASSERT_EQ(tokens[1].type, TokenType::FROM);
+        ASSERT_EQ(tokens[3].type, TokenType::WHERE);
+        EXPECT_EQ(tokens.back().type, TokenType::END);
+    }
+}
+
+TEST(LexerTest, DistinctKeyword) {
+    Lexer lexer("SELECT DISTINCT s.name FROM Student s");
+    auto tokens = lexer.tokenize();
+
+    ASSERT_GE(tokens.size(), 6u);
+    EXPECT_EQ(tokens[0].type, TokenType::SELECT);
+    EXPECT_EQ(tokens[1].type, TokenType::DISTINCT);
+    EXPECT_EQ(tokens[2].type, TokenType::IDENT);
+    EXPECT_EQ(tokens[2].value, "s");
+    EXPECT_EQ(tokens[3].type, TokenType::DOT);
+    EXPECT_EQ(tokens[4].type, TokenType::IDENT);
+    EXPECT_EQ(tokens[4].value, "name");
 }
