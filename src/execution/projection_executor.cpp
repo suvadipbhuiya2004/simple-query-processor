@@ -1,50 +1,35 @@
-#include "execution/projection_executor.h"
-
+#include "execution/projection_executor.hpp"
 #include <stdexcept>
 #include <utility>
 
-// Projection executor keeps selected columns from each child row.
-
-ProjectionExecutor::ProjectionExecutor(std::unique_ptr<Executor> c, std::vector<std::string> cols, bool selectAll)
-    : child(std::move(c)), columns(std::move(cols)), selectAll(selectAll) {
-    if (!child) {
-        throw std::runtime_error("ProjectionExecutor received a null child executor");
-    }
-    if (!this->selectAll && columns.empty()) {
-        throw std::runtime_error("ProjectionExecutor requires at least one projected column");
+ProjectionExecutor::ProjectionExecutor(std::unique_ptr<Executor> child, std::vector<std::string> columns, bool selectAll) : child_(std::move(child)), columns_(std::move(columns)), selectAll_(selectAll) {
+    if (!child_) throw std::runtime_error("ProjectionExecutor: null child executor");
+    if (!selectAll_ && columns_.empty()) {
+        throw std::runtime_error("ProjectionExecutor: no columns specified");
     }
 }
 
-void ProjectionExecutor::open() {
-    child->open();
-}
+void ProjectionExecutor::open() { child_->open(); }
+void ProjectionExecutor::close() { child_->close(); }
 
 bool ProjectionExecutor::next(Row& row) {
     Row input;
-    if (!child->next(input)) {
-        return false;
-    }
+    if (!child_->next(input)) return false;
 
-    if (selectAll) {
+    if (selectAll_) {
         row = std::move(input);
         return true;
     }
 
     Row output;
-    output.reserve(columns.size());
-
-    for (const auto& columnName : columns) {
-        const auto it = input.find(columnName);
+    output.reserve(columns_.size());
+    for (const auto& col : columns_) {
+        const auto it = input.find(col);
         if (it == input.end()) {
-            throw std::runtime_error("Column not found in row: " + columnName);
+            throw std::runtime_error("Projected column not found in row: '" + col + "'");
         }
-        output[columnName] = it->second;
+        output.emplace(col, std::move(it->second));
     }
-
     row = std::move(output);
     return true;
-}
-
-void ProjectionExecutor::close() {
-    child->close();
 }

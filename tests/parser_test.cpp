@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "parser/lexer.h"
-#include "parser/parser.h"
+#include "parser/lexer.hpp"
+#include "parser/parser.hpp"
 
 TEST(ParserTest, SimpleSelect) {
     Lexer lexer("SELECT * FROM users");
@@ -128,4 +128,196 @@ TEST(ParserTest, PrecedenceAndParentheses) {
         ASSERT_NE(orExpr, nullptr);
         EXPECT_EQ(orExpr->op, "OR");
     }
+}
+
+TEST(ParserTest, CreateTableStatement) {
+    Lexer lexer("CREATE TABLE students (id INT PRIMARY KEY, name VARCHAR, age INT)");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    Statement stmt = parser.parseStatement();
+    EXPECT_EQ(stmt.type, StatementType::CREATE_TABLE);
+    ASSERT_NE(stmt.createTable, nullptr);
+    EXPECT_EQ(stmt.createTable->table, "students");
+    ASSERT_EQ(stmt.createTable->columns.size(), 3);
+    EXPECT_EQ(stmt.createTable->columns[0].name, "id");
+    EXPECT_EQ(stmt.createTable->columns[0].type, "INT");
+    EXPECT_TRUE(stmt.createTable->columns[0].primaryKey);
+}
+
+TEST(ParserTest, InsertStatement) {
+    Lexer lexer("INSERT INTO students (id, name, age) VALUES (1, 'Alice', 20)");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    Statement stmt = parser.parseStatement();
+    EXPECT_EQ(stmt.type, StatementType::INSERT);
+    ASSERT_NE(stmt.insert, nullptr);
+    EXPECT_EQ(stmt.insert->table, "students");
+    ASSERT_EQ(stmt.insert->columns.size(), 3);
+    ASSERT_EQ(stmt.insert->valueRows.size(), 1);
+    ASSERT_EQ(stmt.insert->valueRows[0].size(), 3);
+
+    auto* value0 = dynamic_cast<Literal*>(stmt.insert->valueRows[0][0].get());
+    ASSERT_NE(value0, nullptr);
+    EXPECT_EQ(value0->value, "1");
+}
+
+TEST(ParserTest, InsertMultipleRows) {
+    Lexer lexer("INSERT INTO students VALUES (1, 'Alice', 20), (2, 'Bob', 22)");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    Statement stmt = parser.parseStatement();
+    EXPECT_EQ(stmt.type, StatementType::INSERT);
+    ASSERT_NE(stmt.insert, nullptr);
+    EXPECT_EQ(stmt.insert->table, "students");
+    ASSERT_EQ(stmt.insert->valueRows.size(), 2);
+    ASSERT_EQ(stmt.insert->valueRows[0].size(), 3);
+    ASSERT_EQ(stmt.insert->valueRows[1].size(), 3);
+}
+
+TEST(ParserTest, CreateTableWithTypeModifierAndConstraints) {
+    Lexer lexer("CREATE TABLE partnerUniversity (name VARCHAR(100) UNIQUE NOT NULL)");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    Statement stmt = parser.parseStatement();
+    ASSERT_NE(stmt.createTable, nullptr);
+    ASSERT_EQ(stmt.createTable->columns.size(), 1);
+    EXPECT_EQ(stmt.createTable->columns[0].name, "name");
+    EXPECT_EQ(stmt.createTable->columns[0].type, "VARCHAR(100)");
+    EXPECT_TRUE(stmt.createTable->columns[0].unique);
+    EXPECT_TRUE(stmt.createTable->columns[0].notNull);
+}
+
+TEST(ParserTest, CreateTableWithTableLevelForeignKeyConstraint) {
+    Lexer lexer("CREATE TABLE classes (id INT, student_id INT, FOREIGN KEY (student_id) REFERENCES students(id))");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    Statement stmt = parser.parseStatement();
+    ASSERT_NE(stmt.createTable, nullptr);
+    ASSERT_EQ(stmt.createTable->columns.size(), 2);
+    EXPECT_EQ(stmt.createTable->columns[1].name, "student_id");
+    ASSERT_TRUE(stmt.createTable->columns[1].foreignKey.has_value());
+    EXPECT_EQ(*stmt.createTable->columns[1].foreignKey, "students.id");
+}
+
+TEST(ParserTest, CreateTableWithCompositePrimaryKeyConstraint) {
+    Lexer lexer("CREATE TABLE enrollment (student_id INT, course_id INT, PRIMARY KEY (student_id, course_id))");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    Statement stmt = parser.parseStatement();
+    ASSERT_NE(stmt.createTable, nullptr);
+    ASSERT_EQ(stmt.createTable->columns.size(), 2);
+    EXPECT_EQ(stmt.createTable->columns[0].name, "student_id");
+    EXPECT_EQ(stmt.createTable->columns[1].name, "course_id");
+    EXPECT_TRUE(stmt.createTable->columns[0].primaryKey);
+    EXPECT_TRUE(stmt.createTable->columns[1].primaryKey);
+}
+
+TEST(ParserTest, UpdateStatement) {
+    Lexer lexer("UPDATE students SET age = 21, name = 'Alicia' WHERE id = 1");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    Statement stmt = parser.parseStatement();
+    EXPECT_EQ(stmt.type, StatementType::UPDATE);
+    ASSERT_NE(stmt.update, nullptr);
+    EXPECT_EQ(stmt.update->table, "students");
+    ASSERT_EQ(stmt.update->assignments.size(), 2);
+    EXPECT_EQ(stmt.update->assignments[0].column, "age");
+    ASSERT_NE(stmt.update->where, nullptr);
+}
+
+TEST(ParserTest, DeleteStatement) {
+    Lexer lexer("DELETE FROM students WHERE id = 10");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    Statement stmt = parser.parseStatement();
+    EXPECT_EQ(stmt.type, StatementType::DELETE_);
+    ASSERT_NE(stmt.deleteStmt, nullptr);
+    EXPECT_EQ(stmt.deleteStmt->table, "students");
+    ASSERT_NE(stmt.deleteStmt->where, nullptr);
+}
+
+TEST(ParserTest, ConstructFromTemporaryTokenVector) {
+    Parser parser(Lexer("SELECT * FROM users").tokenize());
+    auto stmt = parser.parse();
+
+    EXPECT_EQ(stmt.table, "users");
+    ASSERT_EQ(stmt.columns.size(), 1);
+    auto* col = dynamic_cast<Column*>(stmt.columns[0].get());
+    ASSERT_NE(col, nullptr);
+    EXPECT_EQ(col->name, "*");
+}
+
+TEST(ParserTest, ParseInnerJoinWithAliases) {
+    Lexer lexer(
+        "SELECT u.name, d.dept_name "
+        "FROM users AS u "
+        "INNER JOIN departments d ON u.dept_id = d.dept_id");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    EXPECT_EQ(stmt.from.table, "users");
+    EXPECT_EQ(stmt.from.alias, "u");
+    ASSERT_EQ(stmt.joins.size(), 1);
+    EXPECT_EQ(stmt.joins[0].type, JoinType::INNER);
+    EXPECT_EQ(stmt.joins[0].right.table, "departments");
+    EXPECT_EQ(stmt.joins[0].right.alias, "d");
+    ASSERT_NE(stmt.joins[0].condition, nullptr);
+
+    ASSERT_EQ(stmt.columns.size(), 2);
+    auto* c0 = dynamic_cast<Column*>(stmt.columns[0].get());
+    auto* c1 = dynamic_cast<Column*>(stmt.columns[1].get());
+    ASSERT_NE(c0, nullptr);
+    ASSERT_NE(c1, nullptr);
+    EXPECT_EQ(c0->name, "u.name");
+    EXPECT_EQ(c1->name, "d.dept_name");
+}
+
+TEST(ParserTest, ParseFullOuterJoin) {
+    Lexer lexer(
+        "SELECT users.id, departments.dept_id "
+        "FROM users FULL OUTER JOIN departments "
+        "ON users.dept_id = departments.dept_id");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    ASSERT_EQ(stmt.joins.size(), 1);
+    EXPECT_EQ(stmt.joins[0].type, JoinType::FULL);
+    ASSERT_NE(stmt.joins[0].condition, nullptr);
+}
+
+TEST(ParserTest, ParseCrossJoinWithoutOnClause) {
+    Lexer lexer("SELECT users.id FROM users CROSS JOIN departments");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    ASSERT_EQ(stmt.joins.size(), 1);
+    EXPECT_EQ(stmt.joins[0].type, JoinType::CROSS);
+    EXPECT_EQ(stmt.joins[0].condition, nullptr);
+}
+
+TEST(ParserTest, ParseDistinctQualifiedColumn) {
+    Lexer lexer(
+        "SELECT DISTINCT s.name "
+        "FROM Student s "
+        "JOIN Enrollment e ON s.student_id = e.student_id");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto stmt = parser.parse();
+
+    EXPECT_TRUE(stmt.distinct);
+    ASSERT_EQ(stmt.columns.size(), 1);
+    auto* col = dynamic_cast<Column*>(stmt.columns[0].get());
+    ASSERT_NE(col, nullptr);
+    EXPECT_EQ(col->name, "s.name");
 }

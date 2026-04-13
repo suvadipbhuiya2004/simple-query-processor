@@ -3,25 +3,32 @@ cmake_minimum_required(VERSION 3.16)
 project(QueryEngine VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(CTest)
 
 set(QUERY_ENGINE_SOURCES
+    src/app/query_engine_app.cpp
+    src/app/sql_script_loader.cpp
     src/parser/ast.cpp
     src/parser/lexer.cpp
     src/parser/parser.cpp
-    src/planner/plan_node.cpp
-    src/planner/planner.cpp
+    src/planner/plan.cpp
     src/storage/table.cpp
     src/storage/csv_loader.cpp
+    src/storage/metadata_catalog.cpp
     src/execution/expression.cpp
     src/execution/seq_scan_executor.cpp
     src/execution/filter_executor.cpp
+    src/execution/distinct_executor.cpp
     src/execution/projection_executor.cpp
     src/execution/sort_executor.cpp
     src/execution/limit_executor.cpp
     src/execution/executor_builder.cpp
     src/execution/aggregation_executor.cpp
+    src/execution/join_executor.cpp
 )
 
 add_library(query_engine_lib ${QUERY_ENGINE_SOURCES})
@@ -58,6 +65,7 @@ if(BUILD_TESTING)
 
     add_executable(unit_tests ${QUERY_ENGINE_TEST_SOURCES})
     target_link_libraries(unit_tests PRIVATE GTest::gtest_main query_engine_lib)
+    target_include_directories(unit_tests PRIVATE ${googletest_SOURCE_DIR}/googletest/include)
 
     include(GoogleTest)
     gtest_discover_tests(unit_tests)

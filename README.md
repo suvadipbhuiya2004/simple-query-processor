@@ -1,63 +1,84 @@
 # Simple Query Processor
 
-Implements a minimal SQL pipeline in three layers:
-```
-Parser → AST → Planner → Plan Tree → Execution
-```
-
-## Supported Syntax
-```sql
-SELECT <column_list | *> FROM <table> [WHERE <expr>] [GROUP BY <columns>] [HAVING <expr>] [ORDER BY <column>] [LIMIT <n>]
-```
-```sql
-SELECT * FROM users;
-SELECT name FROM users WHERE age > 30;
-SELECT name, age FROM users WHERE age >= 35;
-SELECT name, city, department FROM users WHERE salary > 90000;
-SELECT name FROM users ORDER BY age LIMIT 2;
-```
-
-Supported WHERE operators: `=` `==` `!=` `<>` `>` `<` `>=` `<=`
-
-## Data Files
-
-- Table files use a `.db` extension (example: `data/users.db`).
-- File content is still CSV-formatted internally.
-
-## Build & Run
-```bash
-make run                                # build and run using queries.sql
-```
-
-The executable reads one or more SQL statements from `queries.sql` and executes them in order.
-
-Output is printed in relation-style table form with a tuple count, for example:
+Implements a small SQL engine with parser, planner, and executor layers:
 
 ```text
-name  | age
-------+----
-John  |  65
-Anita |  28
-
-(2 tuples)
+Parser -> AST -> Planner -> Plan Tree -> Execution
 ```
 
-Example `queries.sql`:
+## Supported Statements
 
 ```sql
-SELECT name FROM users WHERE age >= 35;
-SELECT name, city FROM users WHERE salary > 100000;
+SELECT <column_list | *> FROM <table> [WHERE <expr>] [GROUP BY <columns>] [HAVING <expr>] [ORDER BY <column>] [LIMIT <n>]
+SELECT ... FROM <table> [INNER|LEFT|RIGHT|FULL [OUTER]|CROSS] JOIN <table> [ON <expr>]
+CREATE TABLE <table> (<column_defs>)
+INSERT INTO <table> [(columns...)] VALUES (values...)
+UPDATE <table> SET <column = value, ...> [WHERE <expr>]
+DELETE FROM <table> [WHERE <expr>]
 ```
 
-## Tests
+Examples:
+
+```sql
+CREATE TABLE students (id INT PRIMARY KEY, name VARCHAR, age INT);
+INSERT INTO students (id, name, age) VALUES (1, 'Alice', 20);
+UPDATE students SET age = 21 WHERE id = 1;
+DELETE FROM students WHERE id = 1;
+
+SELECT * FROM users;
+SELECT name FROM users WHERE age >= 35 ORDER BY age LIMIT 3;
+```
+
+Supported predicate operators: `=` `==` `!=` `<>` `>` `<` `>=` `<=`
+
+Join algorithms available in the executor: `HASH` (default), `NESTED_LOOP`, and `MERGE`.
+Default join strategy is configured in [include/planner/plan.hpp](include/planner/plan.hpp#L27).
+
+## Metadata Catalog
+
+Table definitions are stored in `data/metadata.json`.
+
+Schema shape:
+
+```json
+{
+	"tables": {
+		"students": {
+			"file": "students.csv",
+			"columns": [
+				{ "name": "id", "type": "INT", "primary_key": true },
+				{ "name": "name", "type": "VARCHAR" },
+				{ "name": "age", "type": "INT" }
+			]
+		}
+	}
+}
+```
+
+Notes:
+
+- Table data files use `.csv` extension.
+- `CREATE TABLE` updates `metadata.json` and creates a matching `.csv` file.
+- `INSERT`, `UPDATE`, and `DELETE` persist row changes back to table files.
+- Basic constraints are enforced: `PRIMARY KEY` uniqueness, `INT`/`VARCHAR` types, and `FOREIGN KEY` references.
+
+## Build and Run
+
 ```bash
-make test          # brief mode — failures + summary
-make test-verbose  # full per-test output
+make run
+```
+
+The executable reads and executes all SQL statements from `queries.sql`.
+
+## Tests
+
+```bash
+make test
+make test-verbose
 ```
 
 ## Not Yet Supported
 
-- `JOIN` across multiple tables
-- `GROUP BY` / aggregation functions
-- Optimization
-- And more if time permits
+- Aggregation functions like `COUNT`, `SUM`, `AVG`, `MIN`, `MAX`
+- `ASC`, `DESC` using `ORDER BY`
+- Query optimization

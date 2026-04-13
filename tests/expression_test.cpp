@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "execution/expression.h"
+#include "execution/expression.hpp"
 
 TEST(ExpressionTest, ScalarLiteral) {
     Literal lit("42");

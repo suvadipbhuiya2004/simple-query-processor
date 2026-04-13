@@ -1,169 +1,266 @@
-#include "parser/lexer.h"
+#include "parser/lexer.hpp"
 
 #include <cctype>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
-// Lexer implementation for a small SQL subset.
+// namespace
+namespace{
 
-namespace {
-bool IsAlpha(char c) {
-    return std::isalpha(static_cast<unsigned char>(c)) != 0;
-}
+    struct KwEntry {
+        const char *word;
+        TokenType type;
+    };
 
-bool IsDigit(char c) {
-    return std::isdigit(static_cast<unsigned char>(c)) != 0;
-}
+    constexpr KwEntry kKeywords[] = {
+        {"AS", TokenType::AS},
+        {"AND", TokenType::AND},
+        {"BY", TokenType::BY},
+        {"CROSS", TokenType::CROSS},
+        {"CREATE", TokenType::CREATE},
+        {"DELETE", TokenType::DELETE_},
+        {"DISTINCT", TokenType::DISTINCT},
+        {"DROP", TokenType::DROP},
+        {"FOREIGN", TokenType::FOREIGN},
+        {"FROM", TokenType::FROM},
+        {"FULL", TokenType::FULL},
+        {"GROUP", TokenType::GROUP},
+        {"HAVING", TokenType::HAVING},
+        {"INNER", TokenType::INNER},
+        {"INSERT", TokenType::INSERT},
+        {"INTO", TokenType::INTO},
+        {"JOIN", TokenType::JOIN},
+        {"KEY", TokenType::KEY},
+        {"LEFT", TokenType::LEFT},
+        {"LIMIT", TokenType::LIMIT},
+        {"ON", TokenType::ON},
+        {"OR", TokenType::OR},
+        {"ORDER", TokenType::ORDER},
+        {"OUTER", TokenType::OUTER},
+        {"PRIMARY", TokenType::PRIMARY},
+        {"REFERENCES", TokenType::REFERENCES},
+        {"RIGHT", TokenType::RIGHT},
+        {"SELECT", TokenType::SELECT},
+        {"SET", TokenType::SET},
+        {"TABLE", TokenType::TABLE},
+        {"UPDATE", TokenType::UPDATE},
+        {"VALUES", TokenType::VALUES},
+        {"WHERE", TokenType::WHERE},
+    };
 
-bool IsAlphaNumeric(char c) {
-    return std::isalnum(static_cast<unsigned char>(c)) != 0;
-}
-
-bool IsWhitespace(char c) {
-    return std::isspace(static_cast<unsigned char>(c)) != 0;
-}
-
-std::string ToUpper(std::string value) {
-    for (char& c : value) {
-        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    // Case-insensitive uppercase conversion
+    inline char toUpper(char c) noexcept {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
     }
-    return value;
+
+    std::string toUpperStr(std::string_view sv) {
+        std::string out;
+        out.reserve(sv.size());
+        for (char c : sv){
+            out += toUpper(c);
+        }
+        return out;
+    }
+
+    TokenType lookupKeyword(const std::string &upper) noexcept{
+        for (const auto& entry : kKeywords) {
+            if (upper == entry.word) {
+                return entry.type;
+            }
+        }
+        return TokenType::IDENT;
+    }
+
 }
-}  // namespace
 
-Lexer::Lexer(const std::string& input) : input(input), pos(0) {}
+// Lexer
+Lexer::Lexer(std::string input) : input_(std::move(input)) {}
 
-char Lexer::peek() const {
-    return pos < input.size() ? input[pos] : '\0';
+char Lexer::peek() const noexcept{
+    return (pos_ < input_.size()) ? input_[pos_] : '\0';
 }
 
-char Lexer::advance() {
-    return pos < input.size() ? input[pos++] : '\0';
+char Lexer::advance() noexcept{
+    if (pos_ >= input_.size()) return '\0';
+    const char c = input_[pos_++];
+    if (c == '\n') {
+        ++line_;
+        column_ = 1;
+    } else {
+        ++column_;
+    }
+    return c;
 }
 
-void Lexer::skipWhitespace() {
-    while (IsWhitespace(peek())) {
+void Lexer::skipWhitespace() noexcept{
+    while (std::isspace(static_cast<unsigned char>(peek()))){
         advance();
     }
 }
 
-Token Lexer::identifier() {
-    std::string value;
-    while (IsAlphaNumeric(peek()) || peek() == '_') {
-        value += advance();
+Token Lexer::scanIdentifierOrKeyword(){
+    const std::size_t startLine = line_;
+    const std::size_t startCol = column_;
+    const std::size_t start = pos_;
+    while (std::isalnum(static_cast<unsigned char>(peek())) || peek() == '_'){
+        advance();
     }
-
-    const std::string upper = ToUpper(value);
-
-    if (upper == "SELECT") return {TokenType::SELECT, upper};
-    if (upper == "FROM") return {TokenType::FROM, upper};
-    if (upper == "WHERE") return {TokenType::WHERE, upper};
-    if (upper == "ORDER") return {TokenType::ORDER, upper};
-    if (upper == "BY") return {TokenType::BY, upper};
-    if (upper == "LIMIT") return {TokenType::LIMIT, upper};
-    if (upper == "GROUP") return {TokenType::GROUP, upper};
-    if (upper == "BY") return {TokenType::BY, upper};
-    if (upper == "HAVING") return {TokenType::HAVING, upper};
-    if (upper == "AND") return {TokenType::AND, upper};
-    if (upper == "OR") return {TokenType::OR, upper};
-
-    return {TokenType::IDENT, value};
+    std::string raw = input_.substr(start, pos_ - start);
+    std::string upper = toUpperStr(raw);
+    const TokenType kw = lookupKeyword(upper);
+    if (kw != TokenType::IDENT) {
+        return {kw, std::move(upper), startLine, startCol};
+    }
+    return {TokenType::IDENT, std::move(raw), startLine, startCol};
 }
 
-Token Lexer::number() {
-    std::string value;
-    while (IsDigit(peek())) {
-        value += advance();
+Token Lexer::scanNumber(){
+    const std::size_t startLine = line_;
+    const std::size_t startCol = column_;
+    const std::size_t start = pos_;
+    while (std::isdigit(static_cast<unsigned char>(peek()))) {
+        advance();
     }
-    return {TokenType::NUMBER, value};
+    // Basic decimal support: consume one '.' followed by digits
+    if (peek() == '.' && pos_ + 1 < input_.size() &&
+        std::isdigit(static_cast<unsigned char>(input_[pos_ + 1])))
+    {
+        advance(); // consume '.'
+        while (std::isdigit(static_cast<unsigned char>(peek()))) {
+            advance();
+        }
+    }
+    return {TokenType::NUMBER, input_.substr(start, pos_ - start), startLine, startCol};
 }
 
-Token Lexer::string() {
-    // Consume opening quote.
-    advance();
-
+Token Lexer::scanString(){
+    const std::size_t startLine = line_;
+    const std::size_t startCol = column_;
+    advance(); // consume opening '
     std::string value;
-
+    value.reserve(32);
     while (true) {
         const char c = peek();
-
         if (c == '\0') {
-            throw std::runtime_error("Unterminated string literal at position " + std::to_string(pos));
+            throw std::runtime_error(
+                "Unterminated string literal at line " + std::to_string(startLine) +
+                ", column " + std::to_string(startCol));
         }
-
         if (c == '\'') {
             advance();
-
-            // SQL escaping for a single quote inside string literal: ''
             if (peek() == '\'') {
+                // SQL-style escaped single quote: ''
                 value += '\'';
                 advance();
                 continue;
             }
-
             break;
         }
-
         value += advance();
     }
-
-    return {TokenType::STRING, value};
+    return {TokenType::STRING, std::move(value), startLine, startCol};
 }
 
-std::vector<Token> Lexer::tokenize() {
+Token Lexer::scanOperator(){
+    const std::size_t startLine = line_;
+    const std::size_t startCol = column_;
+    // Handles: =, !=, <>, <, >, <=, >=
+    std::string op(1, advance());
+    const char nx = peek();
+
+    if (nx == '=') {
+        op += advance(); // >=  <=  !=  ==
+    }
+    else if (op == "<" && nx == '>') {
+        op += advance(); // <>
+    }
+
+    if (op == "!") {
+        throw std::runtime_error(
+            "Unexpected '!' at line " + std::to_string(startLine) +
+            ", column " + std::to_string(startCol) + ". Did you mean '!='?");
+    }
+    return {TokenType::OP, std::move(op), startLine, startCol};
+}
+
+std::vector<Token> Lexer::tokenize(){
     std::vector<Token> tokens;
-    tokens.reserve((input.size() / 2U) + 1U);
+    tokens.reserve(input_.size() / 4 + 8);
 
     while (true) {
         skipWhitespace();
-
         const char c = peek();
-        if (c == '\0') {
-            break;
+        if (c == '\0') break;
+
+        if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
+            tokens.push_back(scanIdentifierOrKeyword());
         }
-
-        if (IsAlpha(c) || c == '_') {
-            tokens.push_back(identifier());
-        } else if (IsDigit(c)) {
-            tokens.push_back(number());
-        } else if (c == '\'') {
-            tokens.push_back(string());
-        } else if (c == ',') {
-            advance();
-            tokens.push_back({TokenType::COMMA, ","});
-        } else if (c == '*') {
-            advance();
-            tokens.push_back({TokenType::STAR, "*"});
-        } else if (c == '(') {
-            advance();
-            tokens.push_back({TokenType::LPAREN, "("});
-        } else if (c == ')') {
-            advance();
-            tokens.push_back({TokenType::RPAREN, ")"});
-        } else if (c == ';') {
-            // Optional statement terminator.
-            advance();
-        } else if (c == '>' || c == '<' || c == '=' || c == '!') {
-            // Support operators like >, <, =, >=, <=, != and <>.
-            std::string op(1, advance());
-
-            if (peek() == '=') {
-                op += advance();
-            } else if (op == "<" && peek() == '>') {
-                op += advance();
+        else if (std::isdigit(static_cast<unsigned char>(c))) {
+            tokens.push_back(scanNumber());
+        }
+        else if (c == '\'') {
+            tokens.push_back(scanString());
+        }
+        else {
+            switch (c) {
+            case ',':
+                {
+                const std::size_t tokLine = line_;
+                const std::size_t tokCol = column_;
+                advance();
+                tokens.push_back({TokenType::COMMA, ",", tokLine, tokCol});
+                break;
+                }
+            case '*':
+                {
+                const std::size_t tokLine = line_;
+                const std::size_t tokCol = column_;
+                advance();
+                tokens.push_back({TokenType::STAR, "*", tokLine, tokCol});
+                break;
+                }
+            case '(':
+                {
+                const std::size_t tokLine = line_;
+                const std::size_t tokCol = column_;
+                advance();
+                tokens.push_back({TokenType::LPAREN, "(", tokLine, tokCol});
+                break;
+                }
+            case ')':
+                {
+                const std::size_t tokLine = line_;
+                const std::size_t tokCol = column_;
+                advance();
+                tokens.push_back({TokenType::RPAREN, ")", tokLine, tokCol});
+                break;
+                }
+            case '.':
+                {
+                const std::size_t tokLine = line_;
+                const std::size_t tokCol = column_;
+                advance();
+                tokens.push_back({TokenType::DOT, ".", tokLine, tokCol});
+                break;
+                }
+            case ';':
+                advance(); // statement terminator — skip
+                break;
+            case '=':
+            case '!':
+            case '<':
+            case '>':
+                tokens.push_back(scanOperator());
+                break;
+            default:
+                throw std::runtime_error(
+                    std::string("Unexpected character '") + c + "' at line " +
+                    std::to_string(line_) + ", column " + std::to_string(column_));
             }
-
-            if (op == "!") {
-                throw std::runtime_error("Unexpected operator '!' at position " + std::to_string(pos - 1U));
-            }
-
-            tokens.push_back({TokenType::OP, op});
-        } else {
-            throw std::runtime_error(
-                "Unexpected character '" + std::string(1, c) + "' at position " + std::to_string(pos));
         }
     }
 
-    tokens.push_back({TokenType::END, ""});
+    tokens.push_back({TokenType::END, {}, line_, column_});
     return tokens;
 }

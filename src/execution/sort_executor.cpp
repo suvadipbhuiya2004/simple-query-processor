@@ -1,4 +1,4 @@
-#include "execution/sort_executor.h"
+#include "execution/sort_executor.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -8,108 +8,78 @@
 #include <stdexcept>
 #include <utility>
 
-namespace {
-bool TryParseInt64(const std::string& value, int64_t& out) {
-    if (value.empty()) {
-        return false;
+namespace{
+
+    bool tryParseInt64(const std::string &s, std::int64_t &out) noexcept{
+        if (s.empty()) return false;
+        errno = 0;
+        const char *begin = s.c_str();
+        char *end = nullptr;
+        const long long n = std::strtoll(begin, &end, 10);
+        if (begin == end || *end != '\0' || errno == ERANGE)
+            return false;
+        out = static_cast<std::int64_t>(n);
+        return true;
     }
 
-    errno = 0;
-    const char* begin = value.c_str();
-    char* end = nullptr;
-    const long long parsed = std::strtoll(begin, &end, 10);
+    // Returns -1 / 0 / 1 with mixed-type ordering:
+    int compareForSort(const std::string &a, const std::string &b) {
+        std::int64_t ai = 0, bi = 0;
+        const bool an = tryParseInt64(a, ai);
+        const bool bn = tryParseInt64(b, bi);
 
-    if (begin == end || *end != '\0' || errno == ERANGE) {
-        return false;
-    }
-
-    if (parsed < std::numeric_limits<int64_t>::min() ||
-        parsed > std::numeric_limits<int64_t>::max()) {
-        return false;
-    }
-
-    out = static_cast<int64_t>(parsed);
-    return true;
-}
-
-int CompareValues(const std::string& left, const std::string& right) {
-    int64_t leftInt = 0;
-    int64_t rightInt = 0;
-    const bool leftIsNumber = TryParseInt64(left, leftInt);
-    const bool rightIsNumber = TryParseInt64(right, rightInt);
-
-    if (leftIsNumber && rightIsNumber) {
-        if (leftInt < rightInt) {
-            return -1;
+        if (an && bn) {
+            return (ai < bi) ? -1 : (ai > bi) ? 1 : 0;
         }
-        if (leftInt > rightInt) {
-            return 1;
+        if (an != bn) {
+            // Numeric before non-numeric
+            return an ? -1 : 1;
         }
-        return 0;
+        const int cmp = a.compare(b);
+        return (cmp < 0) ? -1 : (cmp > 0) ? 1 : 0;
     }
 
-    // Keep a deterministic total order for mixed types: numeric values first.
-    if (leftIsNumber != rightIsNumber) {
-        return leftIsNumber ? -1 : 1;
-    }
-
-    const int cmp = left.compare(right);
-    if (cmp < 0) {
-        return -1;
-    }
-    if (cmp > 0) {
-        return 1;
-    }
-    return 0;
-}
-}  // namespace
-
-SortExecutor::SortExecutor(std::unique_ptr<Executor> c, std::string column)
-    : child(std::move(c)), orderByColumn(std::move(column)) {
-    if (!child) {
-        throw std::runtime_error("SortExecutor received a null child executor");
-    }
-    if (orderByColumn.empty()) {
-        throw std::runtime_error("SortExecutor requires a non-empty ORDER BY column");
-    }
 }
 
-void SortExecutor::open() {
-    child->open();
-    rows.clear();
-    cursor = 0;
+// SortExecutor
+SortExecutor::SortExecutor(std::unique_ptr<Executor> child, std::string col) : child_(std::move(child)), orderByColumn_(std::move(col)){
+    if (!child_)
+        throw std::runtime_error("SortExecutor: null child executor");
+    if (orderByColumn_.empty())
+        throw std::runtime_error("SortExecutor: ORDER BY column must not be empty");
+}
+
+void SortExecutor::open(){
+    child_->open();
+    buffer_.clear();
+    cursor_ = 0;
 
     Row row;
-    while (child->next(row)) {
-        rows.push_back(row);
+    while (child_->next(row)){
+        buffer_.push_back(std::move(row));
     }
 
-    std::stable_sort(rows.begin(), rows.end(), [this](const Row& a, const Row& b) {
-        const auto aIt = a.find(orderByColumn);
-        if (aIt == a.end()) {
-            throw std::runtime_error("ORDER BY column not found in row: " + orderByColumn);
-        }
-
-        const auto bIt = b.find(orderByColumn);
-        if (bIt == b.end()) {
-            throw std::runtime_error("ORDER BY column not found in row: " + orderByColumn);
-        }
-
-        return CompareValues(aIt->second, bIt->second) < 0;
+    // stable_sort preserves original insertion order for equal keys,
+    std::stable_sort(buffer_.begin(), buffer_.end(), [this](const Row &a, const Row &b){
+        const auto aIt = a.find(orderByColumn_);
+        const auto bIt = b.find(orderByColumn_);
+        if (aIt == a.end())
+        throw std::runtime_error("ORDER BY column missing in row: " + orderByColumn_);
+        if (bIt == b.end())
+        throw std::runtime_error("ORDER BY column missing in row: " + orderByColumn_);
+        return compareForSort(aIt->second, bIt->second) < 0;
     });
 }
 
-bool SortExecutor::next(Row& row) {
-    if (cursor >= rows.size()) {
+bool SortExecutor::next(Row &row) {
+    if (cursor_ >= buffer_.size())
         return false;
-    }
-
-    row = std::move(rows[cursor++]);
+    row = std::move(buffer_[cursor_++]);
     return true;
 }
 
 void SortExecutor::close() {
-    child->close();
-    rows.clear();
-    cursor = 0;
+    child_->close();
+    buffer_.clear();
+    cursor_ = 0;
 }
