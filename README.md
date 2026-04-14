@@ -1,3 +1,18 @@
+<div align="center">
+  <a href="https://dbms-bongodb.vercel.app/">
+      <img src="./docs/BongoDB_logo.png">
+  </a>
+</div>
+<p align="center">
+    <br>
+    <a href="#getting-started">Getting Started</a> |
+    <a href="#database-design">Database Design</a> |
+    <a href="#technology-stack--deployment">Tech Stack used</a> |
+    <a href="https://github.com/suvadipbhuiya2004/dbms-project1/blob/main/docs/LabAssignment-4.pdf">Problem Statement</a> |
+    <a href="https://github.com/suvadipbhuiya2004/dbms-project1/blob/main/docs/Report.pdf">Report</a>
+</p>
+
+
 # Simple Query Processor
 
 A lightweight SQL engine in C++ with parser, planner, optimizer, and executor layers.
@@ -85,6 +100,14 @@ Notes:
 - Legacy string check values are still readable, but object format is preferred.
 - CREATE TABLE and ALTER TABLE keep metadata.json in sync with table schema.
 
+## Methodology
+
+For a simple explanation of how this engine works, query execution paths, and the overall architecture, see the [Project Methodology](./docs/methodology.md) document.
+
+## Web Architecture Extension
+
+If you want to add a web-based terminal on top of this C++ query processor, check out the [Web Architecture Guide](./docs/web-architecture.md). It outlines the recommended approach for building a decoupled frontend and backend API while keeping the engine as the execution core.
+
 ## More Details
 
-See [features.md](docs/features.md) for what more features support
+See [Features](docs/features.md) for what more features support
