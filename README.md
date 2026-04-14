@@ -5,12 +5,12 @@
 </div>
 <p align="center">
     <br>
-	<a href="#build-and-run">Build and Run</a> |
+	<a href="#build-and-run">Getting Started</a> |
 	<a href="#project-data-files">Project Data Files</a> |
     <a href="#methodology">Methodology</a> |
     <a href="https://github.com/suvadipbhuiya2004/simple-query-processor/blob/main/docs/LabProjectGuidelines-2026.pdf">Problem Statement</a> |
     <a href="https://github.com/suvadipbhuiya2004/simple-query-processor/blob/main/docs/Report.pdf">Report</a> |
-	<a href="#more-details">More Details</a> 
+	<a href="#more-details">Features</a> 
 </p>
 
 
