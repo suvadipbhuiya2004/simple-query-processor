@@ -396,6 +396,10 @@ int QueryEngineCli::runRepl()
             {
                 std::cerr << colorize("Unknown command: " + trimmedLine + " (try .help)", ansi::kYellow) << '\n';
             }
+            else
+            {
+                lineEditor.addHistoryEntry(trimmedLine);
+            }
             if (shouldExit)
             {
                 break;
@@ -420,8 +424,8 @@ int QueryEngineCli::runRepl()
             }
             for (std::size_t i = 0; i < statements.size(); ++i)
             {
-                app_.executeStatement(statements[i].text);
                 lineEditor.addHistoryEntry(normalizeHistoryEntry(statements[i].text));
+                app_.executeStatement(statements[i].text);
                 if (i + 1 < statements.size())
                 {
                     std::cout << '\n';
