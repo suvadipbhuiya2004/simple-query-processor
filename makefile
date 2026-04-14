@@ -1,4 +1,4 @@
-.PHONY: all build unit-tests test test-verbose run start-cli web-install web-run rebuild clean help
+.PHONY: all build unit-tests test test-verbose run start-cli rebuild clean help
 
 # Configuration
 BUILD_DIR  ?= build
@@ -58,9 +58,6 @@ help:
 	@echo "                 ARGS='--query \"SELECT * FROM users;\"'"
 	@echo "                 ARGS='--file queries.sql'"
 	@echo "               REPL meta commands: .help .tables .schema <table> .run <file.sql> .clear .exit"
-	@echo "  web-install   Install Python dependencies for web terminal"
-	@echo "  web-run       Build engine and launch the web terminal at http://127.0.0.1:5000"
-	@echo "               Uses virtual environment at $(VENV_DIR)/"
 	@echo "  rebuild       Clean then build"
 	@echo "  clean         Remove $(BUILD_DIR)/" 
 
