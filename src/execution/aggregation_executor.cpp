@@ -77,7 +77,7 @@ namespace
 
     std::string toNumericString(long double v)
     {
-        if (std::isfinite(v) && std::fabsl(v - std::llround(v)) < 1e-12L)
+        if (std::isfinite(v) && std::fabs(v - std::llround(v)) < 1e-12L)
             return std::to_string(static_cast<long long>(std::llround(v)));
 
         std::ostringstream oss;
@@ -204,12 +204,16 @@ namespace
 }
 
 // AggregationExecutor
-AggregationExecutor::AggregationExecutor(std::unique_ptr<Executor> child, const AggregationNode *node) : child_(std::move(child)), node_(node) {
-    if (!child_) throw std::runtime_error("AggregationExecutor: null child executor");
-    if (!node_)  throw std::runtime_error("AggregationExecutor: null plan node");
+AggregationExecutor::AggregationExecutor(std::unique_ptr<Executor> child, const AggregationNode *node) : child_(std::move(child)), node_(node)
+{
+    if (!child_)
+        throw std::runtime_error("AggregationExecutor: null child executor");
+    if (!node_)
+        throw std::runtime_error("AggregationExecutor: null plan node");
 }
 
-void AggregationExecutor::open() {
+void AggregationExecutor::open()
+{
     child_->open();
     results_.clear();
     cursor_ = 0;
@@ -232,10 +236,12 @@ void AggregationExecutor::open() {
     groups.reserve(64);
 
     Row row;
-    while (child_->next(row)) {
+    while (child_->next(row))
+    {
         const std::string key = node_->groupExprs.empty() ? std::string("__global_group__") : buildGroupKey(row);
         auto [it, inserted] = groupIndex.emplace(key, groups.size());
-        if (inserted) {
+        if (inserted)
+        {
             GroupState gs;
             gs.exemplar = row;
             gs.states.resize(specs.size());
@@ -275,7 +281,8 @@ void AggregationExecutor::open() {
                 {
                     for (std::size_t j = 0; j < spec.args.size(); ++j)
                     {
-                        if (j > 0) key += "\x1f";
+                        if (j > 0)
+                            key += "\x1f";
                         key += resolveColumnRef(row, spec.args[j]);
                     }
                 }
@@ -337,34 +344,43 @@ void AggregationExecutor::open() {
     }
 
     //  apply HAVING filter
-    if (node_->havingExpr) {
+    if (node_->havingExpr)
+    {
         auto it = results_.begin();
-        while (it != results_.end()) {
-            if (!ExpressionEvaluator::evalPredicate(node_->havingExpr.get(), *it)) {
+        while (it != results_.end())
+        {
+            if (!ExpressionEvaluator::evalPredicate(node_->havingExpr.get(), *it))
+            {
                 it = results_.erase(it);
-            } 
-            else {
+            }
+            else
+            {
                 ++it;
             }
         }
     }
 }
 
-bool AggregationExecutor::next(Row& row) {
-    if (cursor_ >= results_.size()) return false;
+bool AggregationExecutor::next(Row &row)
+{
+    if (cursor_ >= results_.size())
+        return false;
     row = std::move(results_[cursor_++]);
     return true;
 }
 
-void AggregationExecutor::close() {
+void AggregationExecutor::close()
+{
     child_->close();
     results_.clear();
     cursor_ = 0;
 }
 
-std::string AggregationExecutor::buildGroupKey(const Row& row) const {
+std::string AggregationExecutor::buildGroupKey(const Row &row) const
+{
     std::string key;
-    for (const auto& expr : node_->groupExprs) {
+    for (const auto &expr : node_->groupExprs)
+    {
         key += ExpressionEvaluator::eval(expr.get(), row);
         key += '\x1f';
     }

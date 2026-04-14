@@ -459,3 +459,20 @@ TEST(ParserTest, ParseDistinctQualifiedColumn) {
     ASSERT_NE(col, nullptr);
     EXPECT_EQ(col->name, "s.name");
 }
+
+TEST(ParserTest, PathSelectStatement) {
+    Lexer lexer("PATH SELECT name FROM users WHERE age > 21 ORDER BY age DESC LIMIT 2");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+
+    Statement stmt = parser.parseStatement();
+    EXPECT_EQ(stmt.type, StatementType::PATH_SELECT);
+    ASSERT_NE(stmt.select, nullptr);
+    EXPECT_EQ(stmt.select->table, "users");
+    ASSERT_EQ(stmt.select->columns.size(), 1u);
+    EXPECT_EQ(dynamic_cast<Column *>(stmt.select->columns[0].get())->name, "name");
+    ASSERT_NE(stmt.select->where, nullptr);
+    EXPECT_EQ(stmt.select->orderBy, "age");
+    EXPECT_FALSE(stmt.select->orderByAscending);
+    EXPECT_EQ(stmt.select->limit, 2);
+}

@@ -37,6 +37,8 @@ namespace
     constexpr const char *kYellow = ansi::kYellow;
     constexpr const char *kBlue = ansi::kBlue;
     constexpr const char *kGray = ansi::kGray;
+    constexpr const char *korange = ansi::korange;
+
 
     std::string colorize(std::string text, const char *code)
     {
@@ -342,8 +344,7 @@ namespace
     std::string normalizeStoredColumnCheckExpr(const std::string &expr, const std::string &columnName)
     {
         const std::string trimmedExpr = trim(expr);
-        const std::regex kInPattern("^\\s*" + regexEscape(columnName) + "\\s+IN\\s*\\((.*)\\)\\s*$",
-                                    std::regex::icase);
+        const std::regex kInPattern("^\\s*" + regexEscape(columnName) + "\\s+IN\\s*\\((.*)\\)\\s*$", std::regex::icase);
         std::smatch m;
         if (std::regex_match(trimmedExpr, m, kInPattern) && m.size() >= 2)
             return trim(m[1].str());
@@ -570,6 +571,346 @@ namespace
 
         const std::size_t n = rows.size();
         std::cout << colorize('(' + std::to_string(n) + ' ' + (n == 1 ? "tuple" : "tuples") + ")\n", kGray);
+    }
+
+    std::string joinAlgorithmLabel(JoinAlgorithm algo)
+    {
+        switch (algo)
+        {
+        case JoinAlgorithm::HASH:
+            return "hash";
+        case JoinAlgorithm::NESTED_LOOP:
+            return "nested_loop";
+        case JoinAlgorithm::MERGE:
+            return "merge";
+        }
+        return "unknown";
+    }
+
+    std::string joinTypeLabel(JoinType type)
+    {
+        switch (type)
+        {
+        case JoinType::INNER:
+            return "inner";
+        case JoinType::LEFT:
+            return "left";
+        case JoinType::RIGHT:
+            return "right";
+        case JoinType::FULL:
+            return "full";
+        case JoinType::CROSS:
+            return "cross";
+        }
+        return "unknown";
+    }
+
+    std::string joinStrings(const std::vector<std::string> &items, const char *sep = ", ")
+    {
+        if (items.empty())
+        {
+            return {};
+        }
+        std::string out = items.front();
+        for (std::size_t i = 1; i < items.size(); ++i)
+        {
+            out += sep;
+            out += items[i];
+        }
+        return out;
+    }
+
+    std::string exprToString(const Expr *expr)
+    {
+        if (expr == nullptr)
+        {
+            return "<null>";
+        }
+
+        if (const auto *col = dynamic_cast<const Column *>(expr))
+        {
+            return col->name;
+        }
+        if (const auto *lit = dynamic_cast<const Literal *>(expr))
+        {
+            if (lit->value.empty())
+            {
+                return "''";
+            }
+            return isNumericValue(lit->value) ? lit->value : sqlQuoteLiteral(lit->value);
+        }
+        if (const auto *bin = dynamic_cast<const BinaryExpr *>(expr))
+        {
+            if (bin->op == "NOT")
+            {
+                return "NOT (" + exprToString(bin->left.get()) + ")";
+            }
+            return "(" + exprToString(bin->left.get()) + " " + bin->op + " " +
+                   exprToString(bin->right.get()) + ")";
+        }
+        if (const auto *exists = dynamic_cast<const ExistsExpr *>(expr))
+        {
+            (void)exists;
+            return "EXISTS(subquery)";
+        }
+        if (const auto *inExpr = dynamic_cast<const InExpr *>(expr))
+        {
+            return exprToString(inExpr->value.get()) + " IN (subquery)";
+        }
+        if (const auto *inList = dynamic_cast<const InListExpr *>(expr))
+        {
+            std::vector<std::string> values;
+            values.reserve(inList->list.size());
+            for (const auto &item : inList->list)
+            {
+                values.push_back(exprToString(item.get()));
+            }
+            return exprToString(inList->value.get()) + " IN (" + joinStrings(values) + ")";
+        }
+        return "<expr>";
+    }
+
+    std::string formatExprList(const std::vector<std::unique_ptr<Expr>> &exprs)
+    {
+        std::vector<std::string> out;
+        out.reserve(exprs.size());
+        for (const auto &expr : exprs)
+        {
+            out.push_back(exprToString(expr.get()));
+        }
+        return joinStrings(out);
+    }
+
+    std::string indentLines(const std::string &text, const std::string &prefix)
+    {
+        if (text.empty())
+        {
+            return text;
+        }
+
+        std::string out;
+        out.reserve(text.size() + prefix.size() * 4);
+        bool lineStart = true;
+        for (char c : text)
+        {
+            if (lineStart)
+            {
+                out += prefix;
+                lineStart = false;
+            }
+            out.push_back(c);
+            if (c == '\n')
+            {
+                lineStart = true;
+            }
+        }
+        return out;
+    }
+
+    struct SubqueryInfo
+    {
+        std::string context;
+        const SelectStmt *stmt{nullptr};
+    };
+
+    void collectSubqueriesFromExpr(const Expr *expr, const std::string &context,
+                                   std::vector<SubqueryInfo> &out);
+
+    void collectSubqueriesFromSelect(const SelectStmt &stmt, const std::string &context,
+                                     std::vector<SubqueryInfo> &out)
+    {
+        for (const auto &join : stmt.joins)
+        {
+            if (join.condition)
+            {
+                collectSubqueriesFromExpr(join.condition.get(), context + " JOIN", out);
+            }
+        }
+
+        if (stmt.where)
+        {
+            collectSubqueriesFromExpr(stmt.where.get(), context + " WHERE", out);
+        }
+
+        if (stmt.having)
+        {
+            collectSubqueriesFromExpr(stmt.having.get(), context + " HAVING", out);
+        }
+    }
+
+    void collectSubqueriesFromExpr(const Expr *expr, const std::string &context, std::vector<SubqueryInfo> &out)
+    {
+        if (expr == nullptr)
+        {
+            return;
+        }
+
+        if (const auto *exists = dynamic_cast<const ExistsExpr *>(expr))
+        {
+            if (exists->subquery)
+            {
+                out.push_back({context + " EXISTS", exists->subquery.get()});
+                collectSubqueriesFromSelect(*exists->subquery, context + " EXISTS SUBQUERY", out);
+            }
+            return;
+        }
+
+        if (const auto *inExpr = dynamic_cast<const InExpr *>(expr))
+        {
+            collectSubqueriesFromExpr(inExpr->value.get(), context, out);
+            if (inExpr->subquery)
+            {
+                out.push_back({context + " IN", inExpr->subquery.get()});
+                collectSubqueriesFromSelect(*inExpr->subquery, context + " IN SUBQUERY", out);
+            }
+            return;
+        }
+
+        if (const auto *bin = dynamic_cast<const BinaryExpr *>(expr))
+        {
+            collectSubqueriesFromExpr(bin->left.get(), context, out);
+            collectSubqueriesFromExpr(bin->right.get(), context, out);
+            return;
+        }
+
+        if (const auto *inList = dynamic_cast<const InListExpr *>(expr))
+        {
+            collectSubqueriesFromExpr(inList->value.get(), context, out);
+            for (const auto &item : inList->list)
+            {
+                collectSubqueriesFromExpr(item.get(), context, out);
+            }
+        }
+    }
+
+    std::string describePlanNode(const PlanNode &node)
+    {
+        switch (node.type)
+        {
+        case PlanType::SEQ_SCAN:
+        {
+            const auto &scan = static_cast<const SeqScanNode &>(node);
+            std::string out = "SEQ_SCAN(table=" + scan.table;
+            if (scan.outputQualifier != scan.table)
+            {
+                out += ", alias=" + scan.outputQualifier;
+            }
+            if (scan.pushedPredicate)
+            {
+                out += ", filter=" + exprToString(scan.pushedPredicate.get());
+            }
+            if (scan.alwaysEmpty)
+            {
+                out += ", always_empty=true";
+            }
+            out += ")";
+            return out;
+        }
+        case PlanType::INDEX_SCAN:
+        {
+            const auto &scan = static_cast<const IndexScanNode &>(node);
+            std::string out = "INDEX_SCAN(table=" + scan.table;
+            if (scan.outputQualifier != scan.table)
+            {
+                out += ", alias=" + scan.outputQualifier;
+            }
+            out += ", lookup=" + scan.outputQualifier + "." + scan.lookupColumn +
+                   " = " + sqlQuoteLiteral(scan.lookupValue);
+            if (scan.pushedPredicate)
+            {
+                out += ", filter=" + exprToString(scan.pushedPredicate.get());
+            }
+            if (scan.alwaysEmpty)
+            {
+                out += ", always_empty=true";
+            }
+            out += ")";
+            return out;
+        }
+        case PlanType::JOIN:
+        {
+            const auto &join = static_cast<const JoinNode &>(node);
+            std::string out = "JOIN(type=" + joinTypeLabel(join.joinType) +
+                              ", algo=" + joinAlgorithmLabel(join.algorithm);
+            if (join.condition)
+            {
+                out += ", on=" + exprToString(join.condition.get());
+            }
+            out += ")";
+            return out;
+        }
+        case PlanType::FILTER:
+        {
+            const auto &filter = static_cast<const FilterNode &>(node);
+            return "FILTER(" + exprToString(filter.predicate.get()) + ")";
+        }
+        case PlanType::PROJECTION:
+        {
+            const auto &projection = static_cast<const ProjectionNode &>(node);
+            return "SELECT(cols=[" + formatExprList(projection.columns) + "])";
+        }
+        case PlanType::DISTINCT:
+            return "DISTINCT";
+        case PlanType::AGGREGATION:
+        {
+            const auto &agg = static_cast<const AggregationNode &>(node);
+            std::string out = "AGGREGATE(groups=[" + formatExprList(agg.groupExprs) + "]";
+            if (agg.havingExpr)
+            {
+                out += ", having=" + exprToString(agg.havingExpr.get());
+            }
+            out += ")";
+            return out;
+        }
+        case PlanType::SORT:
+        {
+            const auto &sort = static_cast<const SortNode &>(node);
+            return "SORT(by=" + sort.orderByColumn + ", dir=" + std::string(sort.ascending ? "ASC" : "DESC") + ")";
+        }
+        case PlanType::LIMIT:
+        {
+            const auto &lim = static_cast<const LimitNode &>(node);
+            return "LIMIT(" + std::to_string(lim.limitCount) + ")";
+        }
+        }
+        return "UNKNOWN";
+    }
+
+    void collectPlanExecutionPath(const PlanNode *node, std::vector<std::string> &out)
+    {
+        if (node == nullptr)
+        {
+            return;
+        }
+
+        for (const auto &child : node->children)
+        {
+            collectPlanExecutionPath(child.get(), out);
+        }
+        out.push_back(describePlanNode(*node));
+    }
+
+    std::string renderPlanExecutionPath(const PlanNode *root)
+    {
+        std::vector<std::string> nodes;
+        collectPlanExecutionPath(root, nodes);
+        if (nodes.empty())
+        {
+            return "(empty plan)";
+        }
+
+        std::string out;
+        for (std::size_t i = 0; i < nodes.size(); ++i)
+        {
+            if (!out.empty())
+            {
+                out += '\n';
+            }
+            out += std::to_string(i + 1);
+            out += ". ";
+            out += nodes[i];
+        }
+        return out;
     }
 
     // Legacy CSV inference helpers
@@ -1096,6 +1437,32 @@ namespace
         }
         exec->close();
         printTable(orderedCols, rows);
+    }
+
+    void executePathSelect(const SelectStmt &stmt, Database &db)
+    {
+        Planner planner;
+        auto plan = planner.createPlan(stmt, &db);
+
+        std::cout << colorize("Execution path:", kBlue) << '\n';
+        std::cout << renderPlanExecutionPath(plan.get()) << '\n';
+
+        std::vector<SubqueryInfo> subqueries;
+        collectSubqueriesFromSelect(stmt, "MAIN", subqueries);
+        if (!subqueries.empty())
+        {
+            std::cout << colorize("Subquery path(s):", korange) << '\n';
+            for (std::size_t i = 0; i < subqueries.size(); ++i)
+            {
+                if (subqueries[i].stmt == nullptr)
+                {
+                    continue;
+                }
+                auto subPlan = planner.createPlan(*subqueries[i].stmt, &db);
+                std::cout << std::to_string(i + 1) << ". " << subqueries[i].context << '\n';
+                std::cout << indentLines(renderPlanExecutionPath(subPlan.get()), "   ") << '\n';
+            }
+        }
     }
 
     // executeCreateTable
@@ -1728,6 +2095,7 @@ namespace
         switch (stmt.type)
         {
         case StatementType::SELECT:
+        case StatementType::PATH_SELECT:
             stmt.select->from.table = canon(stmt.select->from.table);
             stmt.select->table = stmt.select->from.table;
             for (auto &j : stmt.select->joins)
@@ -1758,6 +2126,9 @@ namespace
         {
         case StatementType::SELECT:
             executeSelect(*stmt.select, db);
+            break;
+        case StatementType::PATH_SELECT:
+            executePathSelect(*stmt.select, db);
             break;
         case StatementType::CREATE_TABLE:
             executeCreateTable(*stmt.createTable, db, cat);

@@ -178,6 +178,7 @@ struct AlterTableStmt {
 // Top-level statement container
 enum class StatementType {
     SELECT,
+    PATH_SELECT,
     CREATE_TABLE,
     INSERT,
     UPDATE,

@@ -50,6 +50,7 @@ namespace
         {"OR", TokenType::OR},
         {"ORDER", TokenType::ORDER},
         {"OUTER", TokenType::OUTER},
+        {"PATH", TokenType::PATH},
         {"PRIMARY", TokenType::PRIMARY},
         {"RENAME", TokenType::RENAME},
         {"REFERENCES", TokenType::REFERENCES},
