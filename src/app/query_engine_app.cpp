@@ -38,7 +38,6 @@ namespace
     constexpr const char *kBlue = ansi::kBlue;
     constexpr const char *kGray = ansi::kGray;
     constexpr const char *kOrange = ansi::kOrange;
-    constexpr const char *kBrinjal = ansi::kBrinjal;
 
     std::string colorize(std::string text, const char *code)
     {

@@ -428,11 +428,27 @@ int QueryEngineCli::runRepl()
 
 void QueryEngineCli::printWelcome() const
 {
-    std::cout << "\n-----------------------------------------------------------------------------------------------\n\n";
-    std::cout << colorize("Simple Query Processor Terminal", ansi::kBrinjal) << '\n';
-    std::cout << colorize("Type SQL ending with ';' to execute. Use .help for commands.", ansi::kGray) << '\n';
-    std::cout << "\n-----------------------------------------------------------------------------------------------\n";
+    using std::cout;
+    cout << "\n";
+    cout << colorize("╔══════════════════════════════════════════════════════════════════════════════╗\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("                                                                              ", ansi::kGray)  << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("        ██████╗  ██████╗ ███╗   ██╗ ██████╗  ██████╗ ██████╗ ██████╗          ", ansi::kGreen) << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("        ██╔══██╗██╔═══██╗████╗  ██║██╔════╝ ██╔═══██╗██╔══██╗██╔══██╗         ", ansi::kGreen) << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("        ██████╔╝██║   ██║██╔██╗ ██║██║  ███╗██║   ██║██║  ██║██████╔╝         ", ansi::kGreen) << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("        ██╔══██╗██║   ██║██║╚██╗██║██║   ██║██║   ██║██║  ██║██╔══██╗         ", ansi::kGreen) << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("        ██████╔╝╚██████╔╝██║ ╚████║╚██████╔╝╚██████╔╝██████╔╝██████╔╝         ", ansi::kGreen) << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("        ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ ╚═════╝ ╚═════╝          ", ansi::kGreen) << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("                                                                              ", ansi::kGray)  << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("                            Simple Query Processor                            ", ansi::kWhite) << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("                                                                              ", ansi::kGray)  << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("              ➤ Type SQL statements ending with ';' to execute                ", ansi::kGray)  << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("              ➤ Use .help to see available commands                           ", ansi::kGray)  << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("              ➤ Press Ctrl+C to exit                                          ", ansi::kGray)  << colorize("║\n", ansi::kCyan);
+    cout << colorize("║", ansi::kCyan) << colorize("                                                                              ", ansi::kGray)  << colorize("║\n", ansi::kCyan);
+    cout << colorize("╚══════════════════════════════════════════════════════════════════════════════╝\n", ansi::kCyan);
+    cout << "\n";
 }
+
 
 void QueryEngineCli::printTables() const
 {

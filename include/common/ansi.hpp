@@ -12,7 +12,8 @@ namespace ansi {
     inline constexpr const char *kBlue = "\x1b[34m";
     inline constexpr const char *kGray = "\x1b[90m";
     inline constexpr const char *kOrange = "\x1b[38;5;208m";
-    inline constexpr const char *kBrinjal = "\033[38;5;90m";
+    inline constexpr const char *kWhite = "\x1b[37m";
+    inline constexpr const char *kCyan = "\x1b[36m";
 
     inline std::string colorize(std::string text, const char *code) {
         return std::string(code) + std::move(text) + kReset;
