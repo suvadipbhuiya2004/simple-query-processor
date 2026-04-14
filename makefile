@@ -1,4 +1,4 @@
-.PHONY: all build unit-tests test test-verbose run web-install web-run rebuild clean help
+.PHONY: all build unit-tests test test-verbose run start-cli web-install web-run rebuild clean help
 
 # Configuration
 BUILD_DIR  ?= build
@@ -37,6 +37,9 @@ test-verbose: unit-tests
 run: build
 	@./$(BUILD_DIR)/query_engine $(ARGS)
 
+start-cli: build
+	@./$(BUILD_DIR)/query_engine --repl
+
 web-install:
 	@python3 -m venv $(VENV_DIR)
 	@$(VENV_PY) -m pip install --upgrade pip
@@ -57,7 +60,12 @@ help:
 	@echo "  test          Run tests (brief mode)"
 	@echo "  test-verbose  Run tests (full output)"
 	@echo "  run           Run query_engine using queries.sql or ARGS=..."
-	@echo "               Examples: ARGS='--repl' or ARGS='--query \"SELECT * FROM users;\"'"
+	@echo "  start-cli     Start interactive SQL terminal (psql-like input mode)"
+	@echo "               Examples:"
+	@echo "                 ARGS='--repl'"
+	@echo "                 ARGS='--query \"SELECT * FROM users;\"'"
+	@echo "                 ARGS='--file queries.sql'"
+	@echo "               REPL meta commands: .help .tables .schema <table> .run <file.sql> .clear .exit"
 	@echo "  web-install   Install Python dependencies for web terminal"
 	@echo "  web-run       Build engine and launch the web terminal at http://127.0.0.1:5000"
 	@echo "               Uses virtual environment at $(VENV_DIR)/"
