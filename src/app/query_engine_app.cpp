@@ -37,8 +37,8 @@ namespace
     constexpr const char *kYellow = ansi::kYellow;
     constexpr const char *kBlue = ansi::kBlue;
     constexpr const char *kGray = ansi::kGray;
-    constexpr const char *korange = ansi::korange;
-
+    constexpr const char *kOrange = ansi::kOrange;
+    constexpr const char *kBrinjal = ansi::kBrinjal;
 
     std::string colorize(std::string text, const char *code)
     {
@@ -136,10 +136,12 @@ namespace
         {
             const long double lv = std::strtold(l.c_str(), nullptr);
             const long double rv = std::strtold(r.c_str(), nullptr);
-            return (lv < rv) ? -1 : (lv > rv) ? 1 : 0;
+            return (lv < rv) ? -1 : (lv > rv) ? 1
+                                              : 0;
         }
         const int c = l.compare(r);
-        return (c < 0) ? -1 : (c > 0) ? 1 : 0;
+        return (c < 0) ? -1 : (c > 0) ? 1
+                                      : 0;
     }
 
     // CHECK expression evaluator
@@ -1451,7 +1453,7 @@ namespace
         collectSubqueriesFromSelect(stmt, "MAIN", subqueries);
         if (!subqueries.empty())
         {
-            std::cout << colorize("Subquery path(s):", korange) << '\n';
+            std::cout << colorize("Subquery path(s):", kOrange) << '\n';
             for (std::size_t i = 0; i < subqueries.size(); ++i)
             {
                 if (subqueries[i].stmt == nullptr)
@@ -1670,7 +1672,8 @@ namespace
             }
 
             nextMeta.columns.erase(
-                std::remove_if(nextMeta.columns.begin(), nextMeta.columns.end(), [&](const ColumnMetadata &c) { return c.name == stmt.columnName; }),
+                std::remove_if(nextMeta.columns.begin(), nextMeta.columns.end(), [&](const ColumnMetadata &c)
+                               { return c.name == stmt.columnName; }),
                 nextMeta.columns.end());
             for (auto &row : nextRows)
             {
@@ -2279,4 +2282,29 @@ void QueryEngineApp::executeScript(const std::vector<SqlStatement> &statements)
         throw std::runtime_error("Execution summary: " + std::to_string(ok) + " succeeded, " + std::to_string(fail) + " failed.");
 
     std::cout << colorize("\nExecution summary: all " + std::to_string(ok) + " statement(s) succeeded.", kGreen) << "\n\n";
+}
+
+std::vector<QueryEngineApp::TableSummary> QueryEngineApp::getTableSummaries() const
+{
+    std::vector<TableSummary> summaries;
+    summaries.reserve(catalog_.allTables().size());
+
+    for (const auto &[tableName, tableMeta] : catalog_.allTables())
+    {
+        std::size_t rowCount = 0;
+        if (db_.hasTable(tableName))
+        {
+            rowCount = db_.getTable(tableName).size();
+        }
+        summaries.push_back(TableSummary{tableName, tableMeta.columns.size(), rowCount});
+    }
+
+    std::sort(summaries.begin(), summaries.end(), [](const TableSummary &lhs, const TableSummary &rhs)
+              { return lhs.name < rhs.name; });
+    return summaries;
+}
+
+TableMetadata QueryEngineApp::getTableMetadata(const std::string &tableName) const
+{
+    return catalog_.getTable(tableName);
 }

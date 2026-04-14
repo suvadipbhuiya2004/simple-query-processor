@@ -10,6 +10,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(CTest)
 
 set(QUERY_ENGINE_SOURCES
+    src/app/cli/cli_options.cpp
+    src/app/cli/line_editor.cpp
+    src/app/cli/query_engine_cli.cpp
     src/app/query_engine_app.cpp
     src/app/sql_script_loader.cpp
     src/common/data_type.cpp

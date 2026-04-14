@@ -33,7 +33,7 @@ namespace
     //   • single-quoted string literals (with '' escape for embedded quotes)
     //   • -- line comments
     //   • /* block comments */
-    std::vector<SqlStatement> splitStatements(const std::string &sql)
+    std::vector<SqlStatement> splitStatementsImpl(const std::string &sql)
     {
         std::vector<SqlStatement> stmts;
         std::string current;
@@ -225,14 +225,33 @@ namespace
 
 // SqlScriptLoader
 
+std::vector<SqlStatement> SqlScriptLoader::loadDefaultStatements()
+{
+    const std::string path = resolveSqlFile(1, nullptr);
+    return loadStatementsFromFile(path);
+}
+
 std::vector<SqlStatement> SqlScriptLoader::loadStatements(int argc, char *argv[])
 {
     const std::string path = resolveSqlFile(argc, argv);
+    return loadStatementsFromFile(path);
+}
+
+std::vector<SqlStatement> SqlScriptLoader::loadStatementsFromFile(const std::string &path)
+{
+    if (path.empty())
+        throw std::runtime_error("SQL file path cannot be empty.");
+
     const std::string content = readFile(path);
-    auto statements = splitStatements(content);
+    auto statements = splitStatementsImpl(content);
     if (statements.empty())
         throw std::runtime_error("No executable SQL statements found in: " + path);
     return statements;
+}
+
+std::vector<SqlStatement> SqlScriptLoader::splitStatements(const std::string &sqlText)
+{
+    return splitStatementsImpl(sqlText);
 }
 
 std::vector<std::string> SqlScriptLoader::loadQueries(int argc, char *argv[])
