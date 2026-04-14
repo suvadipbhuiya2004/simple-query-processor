@@ -8,7 +8,6 @@
 class ExpressionEvaluator {
 private:
     static std::string evalScalar(const Expr* expr, const Row& row);
-    static bool compareValues(const std::string& left, const std::string& op, const std::string& right);
     static bool tryParseInt64(const std::string& s, std::int64_t& out) noexcept;
     
 public:
@@ -17,4 +16,7 @@ public:
 
     // Evaluate expr as a boolean predicate.
     static bool evalPredicate(const Expr* expr, const Row& row);
+    
+    // Compare two string values with given operator
+    static bool compareValues(const std::string& left, const std::string& op, const std::string& right);
 };

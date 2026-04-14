@@ -33,6 +33,32 @@ struct BinaryExpr : Expr {
     std::unique_ptr<Expr> clone() const override;
 };
 
+// Forward declaration for subqueries
+struct SelectStmt;
+
+struct ExistsExpr : Expr {
+    std::unique_ptr<SelectStmt> subquery;
+
+    explicit ExistsExpr(std::unique_ptr<SelectStmt> sq);
+    std::unique_ptr<Expr> clone() const override;
+};
+
+struct InExpr : Expr {
+    std::unique_ptr<Expr> value;
+    std::unique_ptr<SelectStmt> subquery;
+
+    InExpr(std::unique_ptr<Expr> v, std::unique_ptr<SelectStmt> sq);
+    std::unique_ptr<Expr> clone() const override;
+};
+
+struct InListExpr : Expr {
+    std::unique_ptr<Expr> value;
+    std::vector<std::unique_ptr<Expr>> list;
+
+    InListExpr(std::unique_ptr<Expr> v, std::vector<std::unique_ptr<Expr>> l);
+    std::unique_ptr<Expr> clone() const override;
+};
+
 enum class JoinType {
     INNER,
     LEFT,
@@ -69,6 +95,7 @@ struct SelectStmt {
 
     std::unique_ptr<Expr> where;
     std::string orderBy;
+    bool orderByAscending{true};
     std::vector<std::unique_ptr<Expr>> groupBy;
     std::unique_ptr<Expr> having;
     int limit = -1;
@@ -81,11 +108,14 @@ struct ColumnDef {
     bool unique = false;
     bool notNull = false;
     std::optional<std::string> foreignKey;
+    std::optional<std::string> checkExpr;
 };
 
 struct CreateTableStmt {
     std::string table;
+    bool ifNotExists{false};
     std::vector<ColumnDef> columns;
+    std::vector<std::string> tableChecks;
 };
 
 struct InsertStmt {
@@ -110,13 +140,49 @@ struct DeleteStmt {
     std::unique_ptr<Expr> where;
 };
 
+enum class AlterActionKind {
+    ADD_COLUMN,
+    DROP_COLUMN,
+    RENAME_COLUMN,
+    ALTER_COLUMN_TYPE,
+    ADD_CONSTRAINT,
+};
+
+enum class AlterConstraintKind {
+    PRIMARY_KEY,
+    UNIQUE,
+    FOREIGN_KEY,
+    CHECK,
+};
+
+struct AlterTableStmt {
+    std::string table;
+    AlterActionKind action{AlterActionKind::ADD_COLUMN};
+
+    // ADD COLUMN
+    ColumnDef columnDef;
+
+    // DROP COLUMN / RENAME COLUMN / ALTER COLUMN TYPE
+    std::string columnName;
+    std::string newColumnName;
+    std::string newType;
+
+    // ADD CONSTRAINT
+    AlterConstraintKind constraintKind{AlterConstraintKind::CHECK};
+    std::vector<std::string> constraintColumns;
+    std::string referencedTable;
+    std::string referencedColumn;
+    std::string checkExpr;
+};
+
 // Top-level statement container
-enum class StatementType { 
-    SELECT, 
-    CREATE_TABLE, 
-    INSERT, 
-    UPDATE, 
-    DELETE_ 
+enum class StatementType {
+    SELECT,
+    CREATE_TABLE,
+    INSERT,
+    UPDATE,
+    DELETE_,
+    ALTER_TABLE,
 };
 
 struct Statement {
@@ -126,4 +192,5 @@ struct Statement {
     std::unique_ptr<InsertStmt> insert;
     std::unique_ptr<UpdateStmt> update;
     std::unique_ptr<DeleteStmt> deleteStmt;
+    std::unique_ptr<AlterTableStmt> alterTable;
 };

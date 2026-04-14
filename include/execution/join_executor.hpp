@@ -1,4 +1,6 @@
 #pragma once
+
+#include "execution/compiled_predicate.hpp"
 #include "execution/executor.hpp"
 #include "execution/expression.hpp"
 #include "planner/plan.hpp"
@@ -17,26 +19,29 @@
 //   NESTED_LOOP – O(n*m).         Correct for any condition.
 //   MERGE       – O(n log n).     Best for pre-sorted or equi-join inputs.
 // =============================================================================
-class JoinExecutor final : public Executor{
-private:
+class JoinExecutor final : public Executor {
+  private:
     std::unique_ptr<Executor> left_;
     std::unique_ptr<Executor> right_;
 
     JoinType joinType_;
     JoinAlgorithm algorithm_;
     std::unique_ptr<Expr> condition_;
+    CompiledPredicate compiledCondition_;
+    bool hasCompiledCondition_{false};
 
-    // Schema 
+    // Schema
     std::vector<std::string> leftColumns_;
     std::vector<std::string> rightColumns_;
     std::unordered_set<std::string> leftColumnSet_;
     std::unordered_set<std::string> rightColumnSet_;
 
     std::unordered_map<std::string, std::string> uniqueBareToQualified_;
+    std::unordered_map<std::string, std::string> qualifiedToBare_;
+    std::size_t mergedReserve_{0};
 
     std::vector<Row> outputRows_;
     std::size_t cursor_{0};
-
 
     void buildUniqueBareNameMap();
 
@@ -49,12 +54,17 @@ private:
     bool extractEquiJoinKeys(std::string &leftKey, std::string &rightKey) const;
 
     // Algorithm implementations
-    void runNestedLoopJoin(const std::vector<Row> &leftRows,const std::vector<Row> &rightRows);
+    void runNestedLoopJoin(const std::vector<Row> &leftRows, const std::vector<Row> &rightRows);
     void runHashJoin(const std::vector<Row> &leftRows, const std::vector<Row> &rightRows);
     void runMergeJoin(const std::vector<Row> &leftRows, const std::vector<Row> &rightRows);
+    JoinAlgorithm chooseAlgorithm(const std::vector<Row> &leftRows,
+                                  const std::vector<Row> &rightRows) const;
 
-public:
-    JoinExecutor(std::unique_ptr<Executor> left,std::unique_ptr<Executor> right, JoinType joinType, JoinAlgorithm algorithm, std::unique_ptr<Expr> condition, std::vector<std::string> leftQualifiedColumns, std::vector<std::string> rightQualifiedColumns);
+  public:
+    JoinExecutor(std::unique_ptr<Executor> left, std::unique_ptr<Executor> right, JoinType joinType,
+                 JoinAlgorithm algorithm, std::unique_ptr<Expr> condition,
+                 std::vector<std::string> leftQualifiedColumns,
+                 std::vector<std::string> rightQualifiedColumns);
 
     void open() override;
     bool next(Row &row) override;

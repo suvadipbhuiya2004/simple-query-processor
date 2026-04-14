@@ -1,5 +1,4 @@
 #include "app/sql_script_loader.hpp"
-
 #include <cctype>
 #include <fstream>
 #include <sstream>
@@ -7,9 +6,11 @@
 #include <string>
 #include <vector>
 
-namespace{
+namespace
+{
 
-    std::string trim(const std::string &s){
+    std::string trim(const std::string &s)
+    {
         const std::string ws = " \t\n\r\f\v";
         const auto start = s.find_first_not_of(ws);
         if (start == std::string::npos)
@@ -18,7 +19,8 @@ namespace{
         return s.substr(start, end - start + 1);
     }
 
-    std::string readFile(const std::string &path){
+    std::string readFile(const std::string &path)
+    {
         std::ifstream f(path);
         if (!f.is_open())
             throw std::runtime_error("Cannot open SQL file: " + path);
@@ -31,7 +33,8 @@ namespace{
     //   • single-quoted string literals (with '' escape for embedded quotes)
     //   • -- line comments
     //   • /* block comments */
-    std::vector<SqlStatement> splitStatements(const std::string &sql){
+    std::vector<SqlStatement> splitStatements(const std::string &sql)
+    {
         std::vector<SqlStatement> stmts;
         std::string current;
         bool inString = false;
@@ -44,60 +47,75 @@ namespace{
         std::size_t stmtStartColumn = 1;
         bool hasStmtStart = false;
 
-        auto advancePos = [&](char ch){
-            if (ch == '\n'){
+        auto advancePos = [&](char ch)
+        {
+            if (ch == '\n')
+            {
                 ++line;
                 column = 1;
             }
-            else{
+            else
+            {
                 ++column;
             }
         };
 
-        for (std::size_t i = 0; i < sql.size(); ++i){
+        for (std::size_t i = 0; i < sql.size(); ++i)
+        {
             const char c = sql[i];
             const char next = (i + 1 < sql.size()) ? sql[i + 1] : '\0';
 
-            //  Inside a line comment 
-            if (inLineComment){
-                if (c == '\n'){
+            //  Inside a line comment
+            if (inLineComment)
+            {
+                if (c == '\n')
+                {
                     inLineComment = false;
-                    if (hasStmtStart) current += c;
+                    if (hasStmtStart)
+                        current += c;
                 }
                 advancePos(c);
                 continue;
             }
 
-            //  Inside a block comment 
-            if (inBlockComment){
-                if (c == '*' && next == '/'){
+            //  Inside a block comment
+            if (inBlockComment)
+            {
+                if (c == '*' && next == '/')
+                {
                     inBlockComment = false;
                     advancePos(c);
                     advancePos(next);
                     ++i;
                     continue;
                 }
-                if (c == '\n' && hasStmtStart) current += c;
+                if (c == '\n' && hasStmtStart)
+                    current += c;
                 advancePos(c);
                 continue;
             }
 
-            //  Inside a string literal 
-            if (inString){
-                if (!hasStmtStart) {
+            //  Inside a string literal
+            if (inString)
+            {
+                if (!hasStmtStart)
+                {
                     hasStmtStart = true;
                     stmtStartLine = line;
                     stmtStartColumn = column;
                 }
                 current += c;
-                if (c == '\'') {
+                if (c == '\'')
+                {
                     advancePos(c);
-                    if (next == '\'') {
+                    if (next == '\'')
+                    {
                         current += next;
                         advancePos(next);
                         ++i;
                     }
-                    else {
+                    else
+                    {
                         inString = false;
                     }
                     continue;
@@ -106,9 +124,11 @@ namespace{
                 continue;
             }
 
-            //  Normal context 
-            if (c == '\''){
-                if (!hasStmtStart){
+            //  Normal context
+            if (c == '\'')
+            {
+                if (!hasStmtStart)
+                {
                     hasStmtStart = true;
                     stmtStartLine = line;
                     stmtStartColumn = column;
@@ -118,23 +138,27 @@ namespace{
                 advancePos(c);
                 continue;
             }
-            if (c == '-' && next == '-'){
+            if (c == '-' && next == '-')
+            {
                 inLineComment = true;
                 advancePos(c);
                 advancePos(next);
                 ++i;
                 continue;
             }
-            if (c == '/' && next == '*'){
+            if (c == '/' && next == '*')
+            {
                 inBlockComment = true;
                 advancePos(c);
                 advancePos(next);
                 ++i;
                 continue;
             }
-            if (c == ';'){
+            if (c == ';')
+            {
                 const std::string s = trim(current);
-                if (!s.empty()){
+                if (!s.empty())
+                {
                     stmts.push_back(SqlStatement{
                         s,
                         stmtStartLine,
@@ -147,7 +171,8 @@ namespace{
                 continue;
             }
 
-            if (!hasStmtStart && !std::isspace(static_cast<unsigned char>(c))){
+            if (!hasStmtStart && !std::isspace(static_cast<unsigned char>(c)))
+            {
                 hasStmtStart = true;
                 stmtStartLine = line;
                 stmtStartColumn = column;
@@ -157,14 +182,17 @@ namespace{
             advancePos(c);
         }
 
-        if (inString){
+        if (inString)
+        {
             throw std::runtime_error("Unterminated string literal in SQL file");
         }
-        if (inBlockComment){
+        if (inBlockComment)
+        {
             throw std::runtime_error("Unterminated block comment in SQL file");
         }
         const std::string trailing = trim(current);
-        if (!trailing.empty()){
+        if (!trailing.empty())
+        {
             stmts.push_back(SqlStatement{
                 trailing,
                 stmtStartLine,
@@ -175,25 +203,30 @@ namespace{
     }
 
     // Locate queries.sql: explicit path from argv[1], or check well-known locations.
-    std::string resolveSqlFile(int argc, char * /*argv*/[]){
+    std::string resolveSqlFile(int argc, char * /*argv*/[])
+    {
         // argc == 1 means only the program name — no extra args expected.
-        if (argc != 1){
+        if (argc != 1)
+        {
             throw std::runtime_error("Usage: run without arguments. Place SQL statements in queries.sql next to the executable.");
         }
 
-        for (const char *p : {"queries.sql", "../queries.sql"}){
+        for (const char *p : {"queries.sql", "../queries.sql"})
+        {
             std::ifstream f(p);
             if (f.is_open())
                 return p;
         }
-        throw std::runtime_error("Cannot find queries.sql. Create it in the project root or next to the executable.");
+        throw std::runtime_error(
+            "Cannot find queries.sql. Create it in the project root or next to the executable.");
     }
 
-} 
+}
 
 // SqlScriptLoader
 
-std::vector<SqlStatement> SqlScriptLoader::loadStatements(int argc, char *argv[]){
+std::vector<SqlStatement> SqlScriptLoader::loadStatements(int argc, char *argv[])
+{
     const std::string path = resolveSqlFile(argc, argv);
     const std::string content = readFile(path);
     auto statements = splitStatements(content);
@@ -202,7 +235,8 @@ std::vector<SqlStatement> SqlScriptLoader::loadStatements(int argc, char *argv[]
     return statements;
 }
 
-std::vector<std::string> SqlScriptLoader::loadQueries(int argc, char *argv[]){
+std::vector<std::string> SqlScriptLoader::loadQueries(int argc, char *argv[])
+{
     const auto statements = loadStatements(argc, argv);
     std::vector<std::string> queries;
     queries.reserve(statements.size());

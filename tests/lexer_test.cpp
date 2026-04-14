@@ -159,3 +159,14 @@ TEST(LexerTest, DistinctKeyword) {
     EXPECT_EQ(tokens[4].type, TokenType::IDENT);
     EXPECT_EQ(tokens[4].value, "name");
 }
+
+TEST(LexerTest, OrderByDirectionKeywords) {
+    Lexer lexer("SELECT * FROM users ORDER BY age DESC");
+    auto tokens = lexer.tokenize();
+
+    ASSERT_GE(tokens.size(), 9u);
+    EXPECT_EQ(tokens[4].type, TokenType::ORDER);
+    EXPECT_EQ(tokens[5].type, TokenType::BY);
+    EXPECT_EQ(tokens[6].type, TokenType::IDENT);
+    EXPECT_EQ(tokens[7].type, TokenType::DESC);
+}

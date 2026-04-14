@@ -16,7 +16,22 @@ std::string ExpressionEvaluator::eval(const Expr* expr, const Row& row) {
 bool ExpressionEvaluator::evalPredicate(const Expr* expr, const Row& row) {
     if (expr == nullptr) return true;
 
+    // Handle IN list expressions
+    if (const auto* inList = dynamic_cast<const InListExpr*>(expr)) {
+        const std::string val = evalScalar(inList->value.get(), row);
+        for (const auto& item : inList->list) {
+            if (val == evalScalar(item.get(), row)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     if (const auto* bin = dynamic_cast<const BinaryExpr*>(expr)) {
+        if (bin->op == "NOT") {
+            // NOT operator: negate the left expression
+            return !evalPredicate(bin->left.get(), row);
+        }
         if (bin->op == "AND") {
             // Short-circuit evaluation
             return evalPredicate(bin->left.get(), row) && evalPredicate(bin->right.get(), row);
@@ -50,6 +65,10 @@ std::string ExpressionEvaluator::evalScalar(const Expr* expr, const Row& row) {
     if (const auto* bin = dynamic_cast<const BinaryExpr*>(expr)) {
         // A BinaryExpr used as a scalar returns "1" or "0".
         return evalPredicate(bin, row) ? "1" : "0";
+    }
+    if (const auto* inList = dynamic_cast<const InListExpr*>(expr)) {
+        // IN as a scalar returns "1" or "0"
+        return evalPredicate(inList, row) ? "1" : "0";
     }
     throw std::runtime_error("Unsupported expression type in scalar evaluation");
 }
