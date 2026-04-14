@@ -5,11 +5,13 @@
 </div>
 <p align="center">
     <br>
-    <a href="#getting-started">Getting Started</a> |
-    <a href="#database-design">Database Design</a> |
-    <a href="#technology-stack--deployment">Tech Stack used</a> |
-    <a href="https://github.com/suvadipbhuiya2004/dbms-project1/blob/main/docs/LabAssignment-4.pdf">Problem Statement</a> |
-    <a href="https://github.com/suvadipbhuiya2004/dbms-project1/blob/main/docs/Report.pdf">Report</a>
+	<a href="#build-and-run">Build and Run</a> |
+	<a href="#project-data-files">Project Data Files</a> |
+    <a href="#methodology">Methodoly</a> |
+    <a href="#web-architecture-extension">Web Architecture Extension</a> |
+    <a href="https://github.com/suvadipbhuiya2004/simple-query-processor/blob/main/docs/LabProjectGuidelines-2026.pdf">Problem Statement</a> |
+    <a href="https://github.com/suvadipbhuiya2004/simple-query-processor/blob/main/docs/Report.pdf">Report</a> |
+	<a href="#more-details">More Details</a> 
 </p>
 
 
