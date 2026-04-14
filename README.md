@@ -124,4 +124,4 @@ For a simple explanation of how this engine works, query execution paths, and th
 
 ## More Details
 
-See [Features](docs/features.md) for what more features support
+For a complete overview of the currently implemented functionality and supported SQL operations, refer to the [Features](docs/features.md) document. It includes details about the core SQL commands, supported clauses, optimization features, and other capabilities available in the current version of the project.
