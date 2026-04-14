@@ -46,3 +46,4 @@ unit_tests*_tests.cmake
 
 
 data
+.venv

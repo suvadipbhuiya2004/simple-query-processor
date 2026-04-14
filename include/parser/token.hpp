@@ -27,6 +27,7 @@ enum class TokenType {
     CHECK,
 
     // Query keywords
+    PATH,
     SELECT,
     FROM,
     WHERE,

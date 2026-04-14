@@ -57,6 +57,8 @@ namespace
             return "CHECK";
         case TokenType::DOT:
             return "DOT";
+        case TokenType::PATH:
+            return "PATH";
         case TokenType::SELECT:
             return "SELECT";
         case TokenType::FROM:
@@ -195,6 +197,11 @@ Statement Parser::parseStatement()
     Statement stmt;
     switch (peek().type)
     {
+    case TokenType::PATH:
+        consume(TokenType::PATH);
+        stmt.type = StatementType::PATH_SELECT;
+        stmt.select = std::make_unique<SelectStmt>(parseSelect());
+        break;
     case TokenType::SELECT:
         stmt.type = StatementType::SELECT;
         stmt.select = std::make_unique<SelectStmt>(parseSelect());

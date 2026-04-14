@@ -545,3 +545,23 @@ WHERE EXISTS (
     WHERE e.user_id = u.user_id
 )
 ORDER BY u.user_id;
+
+
+
+
+-- PATH SELECT
+PATH SELECT username
+FROM users
+WHERE user_id NOT IN (
+    SELECT user_id FROM enrollments WHERE grade >= 90
+)
+ORDER BY username;
+
+PATH SELECT u.username
+FROM users u
+WHERE EXISTS (
+    SELECT e.enroll_id
+    FROM enrollments e
+    WHERE e.user_id = u.user_id
+)
+ORDER BY u.user_id;

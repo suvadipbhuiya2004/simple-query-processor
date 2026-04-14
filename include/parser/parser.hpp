@@ -6,7 +6,7 @@
 
 //------------------------------------------------------------------------
 // Parser: converts a token stream into a Statement AST.
-// Supports SELECT / CREATE TABLE / ALTER TABLE / INSERT / UPDATE / DELETE.
+// Supports PATH SELECT / SELECT / CREATE TABLE / ALTER TABLE / INSERT / UPDATE / DELETE.
 //------------------------------------------------------------------------
 class Parser {
   private:

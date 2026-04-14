@@ -170,3 +170,17 @@ TEST(LexerTest, OrderByDirectionKeywords) {
     EXPECT_EQ(tokens[6].type, TokenType::IDENT);
     EXPECT_EQ(tokens[7].type, TokenType::DESC);
 }
+
+TEST(LexerTest, PathSelectKeywords) {
+    Lexer lexer("PATH SELECT * FROM users");
+    auto tokens = lexer.tokenize();
+
+    ASSERT_EQ(tokens.size(), 6u);
+    EXPECT_EQ(tokens[0].type, TokenType::PATH);
+    EXPECT_EQ(tokens[1].type, TokenType::SELECT);
+    EXPECT_EQ(tokens[2].type, TokenType::STAR);
+    EXPECT_EQ(tokens[3].type, TokenType::FROM);
+    EXPECT_EQ(tokens[4].type, TokenType::IDENT);
+    EXPECT_EQ(tokens[4].value, "users");
+    EXPECT_EQ(tokens[5].type, TokenType::END);
+}
