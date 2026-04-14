@@ -42,7 +42,7 @@ make clean        # Remove build artifacts
 REPL supports SQL plus useful non-SQL meta commands:
 
 - Built-in line editor (no extra install required)
-- Arrow-up / arrow-down command history (persisted across sessions)
+- Arrow-up / arrow-down history for full SQL statements and dot-commands (persisted across sessions)
 - Arrow-up recalls the full previous SQL statement (not fragmented lines)
 - Direct multi-line paste support for SQL blocks
 

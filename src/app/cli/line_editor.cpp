@@ -135,29 +135,50 @@ void ReplLineEditor::loadHistory()
     }
 
     std::string line;
-    std::string statementAccumulator;
+    std::string legacyStatementAccumulator;
     while (std::getline(in, line))
     {
         const std::string normalized = trim(line);
-        if (!normalized.empty())
+        if (normalized.empty())
         {
-            if (!statementAccumulator.empty())
-            {
-                statementAccumulator.push_back(' ');
-            }
-            statementAccumulator += normalized;
+            continue;
+        }
 
-            if (normalized.find(';') != std::string::npos)
+        // New format: explicit history entry marker keeps commands and queries atomic.
+        if (normalized.rfind("H|", 0) == 0)
+        {
+            const std::string entry = trim(normalized.substr(2));
+            if (!entry.empty())
             {
-                history_.push_back(trim(statementAccumulator));
-                statementAccumulator.clear();
+                history_.push_back(entry);
             }
+            continue;
+        }
+
+        // Backward compatibility: old history may have dot-commands line-by-line.
+        if (!normalized.empty() && normalized.front() == '.')
+        {
+            history_.push_back(normalized);
+            continue;
+        }
+
+        // Backward compatibility: old SQL history was stored line-by-line.
+        if (!legacyStatementAccumulator.empty())
+        {
+            legacyStatementAccumulator.push_back(' ');
+        }
+        legacyStatementAccumulator += normalized;
+
+        if (normalized.find(';') != std::string::npos)
+        {
+            history_.push_back(trim(legacyStatementAccumulator));
+            legacyStatementAccumulator.clear();
         }
     }
 
-    if (!statementAccumulator.empty())
+    if (!legacyStatementAccumulator.empty())
     {
-        history_.push_back(trim(statementAccumulator));
+        history_.push_back(trim(legacyStatementAccumulator));
     }
 }
 
@@ -168,7 +189,7 @@ void ReplLineEditor::appendHistoryEntry(const std::string &entry) const
     {
         return;
     }
-    out << entry << '\n';
+    out << "H|" << entry << '\n';
 }
 
 bool ReplLineEditor::popPendingLine(std::string &outLine)
