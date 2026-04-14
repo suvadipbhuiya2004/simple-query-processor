@@ -12,19 +12,25 @@ include(CTest)
 set(QUERY_ENGINE_SOURCES
     src/app/query_engine_app.cpp
     src/app/sql_script_loader.cpp
+    src/common/data_type.cpp
     src/parser/ast.cpp
     src/parser/lexer.cpp
     src/parser/parser.cpp
     src/planner/plan.cpp
+    src/planner/optimizer.cpp
+    src/planner/statistics.cpp
+    src/planner/cost_model.cpp
     src/storage/table.cpp
     src/storage/csv_loader.cpp
     src/storage/metadata_catalog.cpp
+    src/execution/compiled_predicate.cpp
     src/execution/expression.cpp
     src/execution/seq_scan_executor.cpp
     src/execution/filter_executor.cpp
     src/execution/distinct_executor.cpp
     src/execution/projection_executor.cpp
     src/execution/sort_executor.cpp
+    src/execution/index_scan_executor.cpp
     src/execution/limit_executor.cpp
     src/execution/executor_builder.cpp
     src/execution/aggregation_executor.cpp
@@ -61,6 +67,9 @@ if(BUILD_TESTING)
         tests/parser_test.cpp
         tests/execution_test.cpp
         tests/expression_test.cpp
+        tests/aggregation_edge_cases_test.cpp
+        tests/alter_table_test.cpp
+        tests/data_type_test.cpp
     )
 
     add_executable(unit_tests ${QUERY_ENGINE_TEST_SOURCES})

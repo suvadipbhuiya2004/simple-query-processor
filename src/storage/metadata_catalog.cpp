@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -12,6 +13,8 @@
 namespace
 {
 
+    std::string jsonEscape(const std::string &s);
+
     struct JVal
     {
         enum class Kind
@@ -19,6 +22,7 @@ namespace
             Object,
             Array,
             String,
+            Number,
             Bool,
             Null
         } kind = Kind::Null;
@@ -91,6 +95,13 @@ namespace
                 v.str = string();
                 return v;
             }
+            if (c == '-' || std::isdigit(static_cast<unsigned char>(c)))
+            {
+                JVal v;
+                v.kind = JVal::Kind::Number;
+                v.str = number();
+                return v;
+            }
             if (c == 't' || c == 'f')
             {
                 JVal v;
@@ -106,6 +117,47 @@ namespace
                 return v;
             }
             fail(std::string("Unexpected character '") + c + "'");
+        }
+
+        std::string number()
+        {
+            const std::size_t start = pos_;
+            if (cur() == '-')
+                ++pos_;
+            if (!std::isdigit(static_cast<unsigned char>(cur())))
+                fail("Invalid number");
+
+            if (cur() == '0')
+            {
+                ++pos_;
+            }
+            else
+            {
+                while (!eof() && std::isdigit(static_cast<unsigned char>(cur())))
+                    ++pos_;
+            }
+
+            if (!eof() && cur() == '.')
+            {
+                ++pos_;
+                if (eof() || !std::isdigit(static_cast<unsigned char>(cur())))
+                    fail("Invalid number fraction");
+                while (!eof() && std::isdigit(static_cast<unsigned char>(cur())))
+                    ++pos_;
+            }
+
+            if (!eof() && (cur() == 'e' || cur() == 'E'))
+            {
+                ++pos_;
+                if (!eof() && (cur() == '+' || cur() == '-'))
+                    ++pos_;
+                if (eof() || !std::isdigit(static_cast<unsigned char>(cur())))
+                    fail("Invalid number exponent");
+                while (!eof() && std::isdigit(static_cast<unsigned char>(cur())))
+                    ++pos_;
+            }
+
+            return src_.substr(start, pos_ - start);
         }
 
         JVal object()
@@ -255,8 +307,7 @@ namespace
         return v.str;
     }
 
-    std::string reqStr(const std::unordered_map<std::string, JVal> &o,
-                       const char *key, const char *ctx)
+    std::string reqStr(const std::unordered_map<std::string, JVal> &o, const char *key, const char *ctx)
     {
         const auto it = o.find(key);
         if (it == o.end())
@@ -265,8 +316,16 @@ namespace
         return asStr(it->second, ctx);
     }
 
-    std::optional<std::string> optStr(const std::unordered_map<std::string, JVal> &o,
-                                      const char *key, const char *ctx)
+    const JVal &reqVal(const std::unordered_map<std::string, JVal> &o, const char *key, const char *ctx)
+    {
+        const auto it = o.find(key);
+        if (it == o.end())
+            throw std::runtime_error(
+                std::string("Missing key '") + key + "' in " + ctx);
+        return it->second;
+    }
+
+    std::optional<std::string> optStr(const std::unordered_map<std::string, JVal> &o, const char *key, const char *ctx)
     {
         const auto it = o.find(key);
         if (it == o.end() || it->second.kind == JVal::Kind::Null)
@@ -274,8 +333,7 @@ namespace
         return asStr(it->second, ctx);
     }
 
-    bool optBool(const std::unordered_map<std::string, JVal> &o,
-                 const char *key, const char * /*ctx*/, bool dflt)
+    bool optBool(const std::unordered_map<std::string, JVal> &o, const char *key, const char * /*ctx*/, bool dflt)
     {
         const auto it = o.find(key);
         if (it == o.end())
@@ -283,6 +341,252 @@ namespace
         if (it->second.kind == JVal::Kind::Bool)
             return it->second.boolean;
         return dflt;
+    }
+
+    std::string trim(std::string s)
+    {
+        const auto isWs = [](unsigned char c)
+        { return std::isspace(c) != 0; };
+        const auto b = std::find_if_not(s.begin(), s.end(), isWs);
+        const auto e = std::find_if_not(s.rbegin(), s.rend(), isWs).base();
+        if (b >= e)
+            return {};
+        return std::string(b, e);
+    }
+
+    std::string regexEscape(const std::string &s)
+    {
+        static const std::regex kMeta(R"([.^$|()\[\]{}*+?\\])");
+        return std::regex_replace(s, kMeta, R"(\\$&)");
+    }
+
+    bool isNumericToken(const std::string &s)
+    {
+        static const std::regex kNum(R"(^[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?$)");
+        return std::regex_match(s, kNum);
+    }
+
+    std::string sqlQuote(const std::string &s)
+    {
+        std::string out;
+        out.reserve(s.size() + 2);
+        out.push_back('\'');
+        for (char c : s)
+        {
+            out.push_back(c);
+            if (c == '\'')
+                out.push_back('\'');
+        }
+        out.push_back('\'');
+        return out;
+    }
+
+    std::optional<std::string> unquoteSqlString(const std::string &tok)
+    {
+        if (tok.size() < 2 || tok.front() != '\'' || tok.back() != '\'')
+            return std::nullopt;
+        std::string out;
+        out.reserve(tok.size() - 2);
+        for (std::size_t i = 1; i + 1 < tok.size(); ++i)
+        {
+            if (tok[i] == '\'' && i + 1 < tok.size() - 1 && tok[i + 1] == '\'')
+            {
+                out.push_back('\'');
+                ++i;
+            }
+            else
+            {
+                out.push_back(tok[i]);
+            }
+        }
+        return out;
+    }
+
+    std::string scalarToSqlLiteral(const JVal &v, const char *ctx)
+    {
+        if (v.kind == JVal::Kind::Number)
+            return v.str;
+        if (v.kind == JVal::Kind::String)
+            return sqlQuote(v.str);
+        throw std::runtime_error(std::string("Expected scalar for ") + ctx);
+    }
+
+    std::vector<std::string> splitCommaOutsideQuotes(const std::string &s)
+    {
+        std::vector<std::string> out;
+        std::string cur;
+        bool inQuote = false;
+
+        for (std::size_t i = 0; i < s.size(); ++i)
+        {
+            const char c = s[i];
+            if (c == '\'')
+            {
+                cur.push_back(c);
+                if (inQuote && i + 1 < s.size() && s[i + 1] == '\'')
+                {
+                    cur.push_back('\'');
+                    ++i;
+                }
+                else
+                {
+                    inQuote = !inQuote;
+                }
+                continue;
+            }
+            if (c == ',' && !inQuote)
+            {
+                out.push_back(trim(cur));
+                cur.clear();
+                continue;
+            }
+            cur.push_back(c);
+        }
+        if (inQuote)
+            return {};
+        out.push_back(trim(cur));
+        return out;
+    }
+
+    std::optional<std::vector<std::string>> parseEnumListTokens(const std::string &expr)
+    {
+        const auto parts = splitCommaOutsideQuotes(expr);
+        if (parts.empty())
+            return std::nullopt;
+
+        std::vector<std::string> values;
+        values.reserve(parts.size());
+        for (const auto &p : parts)
+        {
+            if (p.empty())
+                return std::nullopt;
+            const auto u = unquoteSqlString(p);
+            if (!u)
+                return std::nullopt;
+            values.push_back(*u);
+        }
+        return values;
+    }
+
+    std::string scalarToJson(const std::string &tok)
+    {
+        const std::string t = trim(tok);
+        if (const auto uq = unquoteSqlString(t))
+            return "\"" + jsonEscape(*uq) + "\"";
+        if (isNumericToken(t))
+            return t;
+        return "\"" + jsonEscape(t) + "\"";
+    }
+
+    std::string parseCheckObject(const std::unordered_map<std::string, JVal> &o, const std::string &columnName)
+    {
+        const std::string type = trim(reqStr(o, "type", "check"));
+        std::string typeLower = type;
+        std::transform(typeLower.begin(), typeLower.end(), typeLower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+        if (typeLower == "enum")
+        {
+            const auto &vals = asArr(reqVal(o, "values", "check"), "check.values");
+            if (vals.empty())
+                throw std::runtime_error("check enum values cannot be empty");
+            std::ostringstream expr;
+            expr << columnName << " IN( ";
+            for (std::size_t i = 0; i < vals.size(); ++i)
+            {
+                if (vals[i].kind != JVal::Kind::String)
+                    throw std::runtime_error("check enum values must be strings");
+                expr << sqlQuote(vals[i].str);
+                if (i + 1 < vals.size())
+                    expr << " , ";
+            }
+            expr << ")";
+            return expr.str();
+        }
+
+        if (typeLower == "range")
+        {
+            const std::string lo = scalarToSqlLiteral(reqVal(o, "min", "check"), "check.min");
+            const std::string hi = scalarToSqlLiteral(reqVal(o, "max", "check"), "check.max");
+            return columnName + " BETWEEN " + lo + " AND " + hi;
+        }
+
+        if (typeLower == "comparison")
+        {
+            const std::string op = trim(reqStr(o, "operator", "check"));
+            const std::string rhs = scalarToSqlLiteral(reqVal(o, "value", "check"), "check.value");
+            return columnName + " " + op + " " + rhs;
+        }
+
+        if (typeLower == "expression")
+            return reqStr(o, "sql", "check");
+
+        throw std::runtime_error("Unsupported check type: " + type);
+    }
+
+    std::string checkExprToJson(const std::string &expr, const std::string &columnName)
+    {
+        const std::string e = trim(expr);
+
+        const std::regex inPattern(
+            "^\\s*" + regexEscape(columnName) +
+                "\\s+IN\\s*\\((.*)\\)\\s*$",
+            std::regex::icase);
+        std::smatch m;
+
+        std::string enumBody;
+        bool tryEnum = false;
+        if (std::regex_match(e, m, inPattern) && m.size() >= 2)
+        {
+            enumBody = trim(m[1].str());
+            tryEnum = true;
+        }
+        else
+        {
+            enumBody = e;
+            if (enumBody.find(',') != std::string::npos)
+                tryEnum = true;
+        }
+
+        if (tryEnum)
+        {
+            if (const auto vals = parseEnumListTokens(enumBody))
+            {
+                std::ostringstream out;
+                out << "{ \"type\": \"enum\", \"values\": [";
+                for (std::size_t i = 0; i < vals->size(); ++i)
+                {
+                    out << "\"" << jsonEscape((*vals)[i]) << "\"";
+                    if (i + 1 < vals->size())
+                        out << ", ";
+                }
+                out << "] }";
+                return out.str();
+            }
+        }
+
+        const std::regex rangePattern(
+            "^\\s*" + regexEscape(columnName) +
+                "\\s+BETWEEN\\s+(.+?)\\s+AND\\s+(.+?)\\s*$",
+            std::regex::icase);
+        if (std::regex_match(e, m, rangePattern) && m.size() >= 3)
+        {
+            return "{ \"type\": \"range\", \"min\": " + scalarToJson(m[1].str()) +
+                   ", \"max\": " + scalarToJson(m[2].str()) + " }";
+        }
+
+        const std::regex cmpPattern(
+            "^\\s*" + regexEscape(columnName) +
+                "\\s*(<=|>=|<>|!=|==|=|<|>)\\s*(.+?)\\s*$",
+            std::regex::icase);
+        if (std::regex_match(e, m, cmpPattern) && m.size() >= 3)
+        {
+            return "{ \"type\": \"comparison\", \"operator\": \"" +
+                   jsonEscape(trim(m[1].str())) + "\", \"value\": " +
+                   scalarToJson(m[2].str()) + " }";
+        }
+
+        return "{ \"type\": \"expression\", \"sql\": \"" +
+               jsonEscape(e) + "\" }";
     }
 
     //  Serialization helpers 
@@ -372,7 +676,28 @@ void MetadataCatalog::load()
             col.unique = optBool(cobj, "unique", "column", false);
             col.notNull = optBool(cobj, "not_null", "column", false);
             col.foreignKey = optStr(cobj, "foreign_key", "column");
+            if (const auto chkIt = cobj.find("check"); chkIt != cobj.end())
+            {
+                if (chkIt->second.kind == JVal::Kind::String)
+                {
+                    col.checkExpr = chkIt->second.str;
+                }
+                else if (chkIt->second.kind == JVal::Kind::Object)
+                {
+                    col.checkExpr = parseCheckObject(asObj(chkIt->second, "check"), col.name);
+                }
+                else
+                {
+                    throw std::runtime_error("Invalid 'check' type in metadata for column: " + col.name);
+                }
+            }
             meta.columns.push_back(std::move(col));
+        }
+
+        if (const auto tcIt = tobj.find("table_checks"); tcIt != tobj.end())
+        {
+            for (const auto &j : asArr(tcIt->second, "table_checks"))
+                meta.tableChecks.push_back(asStr(j, "table_check"));
         }
         tables_[tname] = std::move(meta);
     }
@@ -417,13 +742,33 @@ void MetadataCatalog::save() const
                 out << ", \"not_null\": true";
             if (c.foreignKey.has_value())
                 out << ", \"foreign_key\": \"" << jsonEscape(*c.foreignKey) << '"';
+            if (c.checkExpr.has_value())
+                out << ", \"check\": " << checkExprToJson(*c.checkExpr, c.name);
             out << " }";
             if (ci + 1 < tm.columns.size())
                 out << ',';
             out << '\n';
         }
 
-        out << "      ]\n    }";
+        out << "      ]";
+        if (!tm.tableChecks.empty())
+        {
+            out << ",\n      \"table_checks\": [\n";
+            for (std::size_t i = 0; i < tm.tableChecks.size(); ++i)
+            {
+                out << "        \"" << jsonEscape(tm.tableChecks[i]) << "\"";
+                if (i + 1 < tm.tableChecks.size())
+                    out << ',';
+                out << '\n';
+            }
+            out << "      ]\n";
+        }
+        else
+        {
+            out << '\n';
+        }
+
+        out << "    }";
         if (ti + 1 < names.size())
             out << ',';
         out << '\n';

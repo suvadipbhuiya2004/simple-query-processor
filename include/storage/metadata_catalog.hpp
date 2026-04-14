@@ -12,11 +12,13 @@ struct ColumnMetadata {
     bool unique = false;
     bool notNull = false;
     std::optional<std::string> foreignKey;
+    std::optional<std::string> checkExpr;
 };
 
 struct TableMetadata {
     std::string file;
     std::vector<ColumnMetadata> columns;
+    std::vector<std::string> tableChecks;
 };
 
 

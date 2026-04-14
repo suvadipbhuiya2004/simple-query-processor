@@ -1,84 +1,90 @@
 # Simple Query Processor
 
-Implements a small SQL engine with parser, planner, and executor layers:
+A lightweight SQL engine in C++ with parser, planner, optimizer, and executor layers.
+
+Architecture flow:
 
 ```text
-Parser -> AST -> Planner -> Plan Tree -> Execution
+SQL -> Lexer + Parser -> AST -> Planner -> Optimizer -> Executors
 ```
 
-## Supported Statements
+## Build and Run
 
-```sql
-SELECT <column_list | *> FROM <table> [WHERE <expr>] [GROUP BY <columns>] [HAVING <expr>] [ORDER BY <column>] [LIMIT <n>]
-SELECT ... FROM <table> [INNER|LEFT|RIGHT|FULL [OUTER]|CROSS] JOIN <table> [ON <expr>]
-CREATE TABLE <table> (<column_defs>)
-INSERT INTO <table> [(columns...)] VALUES (values...)
-UPDATE <table> SET <column = value, ...> [WHERE <expr>]
-DELETE FROM <table> [WHERE <expr>]
+```bash
+make build        # Compile
+make run          # Run queries.sql
+make test         # Run unit tests
+make test-verbose # Verbose unit tests
+make rebuild      # Clean and rebuild
+make clean        # Remove build artifacts
 ```
 
-Examples:
+## Project Data Files
 
-```sql
-CREATE TABLE students (id INT PRIMARY KEY, name VARCHAR, age INT);
-INSERT INTO students (id, name, age) VALUES (1, 'Alice', 20);
-UPDATE students SET age = 21 WHERE id = 1;
-DELETE FROM students WHERE id = 1;
+- Metadata catalog: data/metadata.json
+- Table data: data/*.csv
+- SQL workload: queries.sql
 
-SELECT * FROM users;
-SELECT name FROM users WHERE age >= 35 ORDER BY age LIMIT 3;
-```
+## metadata.json Structure
 
-Supported predicate operators: `=` `==` `!=` `<>` `>` `<` `>=` `<=`
-
-Join algorithms available in the executor: `HASH` (default), `NESTED_LOOP`, and `MERGE`.
-Default join strategy is configured in [include/planner/plan.hpp](include/planner/plan.hpp#L27).
-
-## Metadata Catalog
-
-Table definitions are stored in `data/metadata.json`.
-
-Schema shape:
+Top-level shape:
 
 ```json
 {
 	"tables": {
-		"students": {
-			"file": "students.csv",
+		"<table_name>": {
+			"file": "<table_file>.csv",
 			"columns": [
-				{ "name": "id", "type": "INT", "primary_key": true },
-				{ "name": "name", "type": "VARCHAR" },
-				{ "name": "age", "type": "INT" }
+				{
+					"name": "<column_name>",
+					"type": "<type>",
+					"primary_key": true,
+					"unique": true,
+					"not_null": true,
+					"foreign_key": "<ref_table>.<ref_column>",
+					"check": { "type": "enum", "values": ["A", "B"] }
+				}
+			],
+			"table_checks": [
+				"<sql_boolean_expression>"
 			]
 		}
 	}
 }
 ```
 
+Column field meanings:
+- name: column name
+- type: normalized SQL type string (for example INT, VARCHAR(50), TIMESTAMP)
+- primary_key: marks column as part of primary key
+- unique: unique constraint
+- not_null: disallow empty value
+- foreign_key: reference in table.column format
+- check: column-level validation rule
+
+Supported check object formats:
+
+```json
+{ "type": "enum", "values": ["ok", "warn", "fail"] }
+```
+
+```json
+{ "type": "range", "min": 0, "max": 100 }
+```
+
+```json
+{ "type": "comparison", "operator": ">", "value": 0 }
+```
+
+```json
+{ "type": "expression", "sql": "score >= 0 AND score <= 100" }
+```
+
 Notes:
+- table_checks is optional.
+- Legacy string check values are still readable, but object format is preferred.
+- CREATE TABLE and ALTER TABLE keep metadata.json in sync with table schema.
 
-- Table data files use `.csv` extension.
-- `CREATE TABLE` updates `metadata.json` and creates a matching `.csv` file.
-- `INSERT`, `UPDATE`, and `DELETE` persist row changes back to table files.
-- Basic constraints are enforced: `PRIMARY KEY` uniqueness, `INT`/`VARCHAR` types, and `FOREIGN KEY` references.
+## More Details
 
-## Build and Run
-
-```bash
-make run
-```
-
-The executable reads and executes all SQL statements from `queries.sql`.
-
-## Tests
-
-```bash
-make test
-make test-verbose
-```
-
-## Not Yet Supported
-
-- Aggregation functions like `COUNT`, `SUM`, `AVG`, `MIN`, `MAX`
-- `ASC`, `DESC` using `ORDER BY`
-- Query optimization
+See [features.md](docs/features.md) for what more features support

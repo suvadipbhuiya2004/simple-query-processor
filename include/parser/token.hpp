@@ -2,33 +2,70 @@
 #include <cstddef>
 #include <string>
 
-
 enum class TokenType {
     // DDL / DML keywords
-    CREATE, TABLE,
-    INSERT, INTO, VALUES,
-    UPDATE, SET,
-    DELETE_, DROP,
-    PRIMARY, KEY, FOREIGN, REFERENCES,
+    CREATE,
+    TABLE,
+    ALTER,
+    ADD,
+    COLUMN,
+    RENAME,
+    TO,
+    CONSTRAINT,
+    TYPE,
+    INSERT,
+    INTO,
+    VALUES,
+    UPDATE,
+    SET,
+    DELETE_,
+    DROP,
+    PRIMARY,
+    KEY,
+    FOREIGN,
+    REFERENCES,
+    CHECK,
 
     // Query keywords
-    SELECT, FROM, WHERE,
+    SELECT,
+    FROM,
+    WHERE,
     DISTINCT,
-    JOIN, INNER, LEFT, RIGHT, FULL, OUTER, CROSS, ON, AS,
-    ORDER, GROUP, HAVING, BY, LIMIT,
+    JOIN,
+    INNER,
+    LEFT,
+    RIGHT,
+    FULL,
+    OUTER,
+    CROSS,
+    ON,
+    AS,
+    ORDER,
+    GROUP,
+    HAVING,
+    BY,
+    LIMIT,
+    EXISTS,
+    NOT,
+    IN,
+    ASC,
+    DESC,
 
     // Logical operators
-    AND, OR,
+    AND,
+    OR,
 
     // Literals and identifiers
-    NUMBER, STRING, IDENT,
+    NUMBER,
+    STRING,
+    IDENT,
 
     // Punctuation / operators
-    OP,      // =, !=, <>, <, >, <=, >=
+    OP, // =, !=, <>, <, >, <=, >=
     COMMA,
     STAR,
-    LPAREN,  // (
-    RPAREN,  // )
+    LPAREN, // (
+    RPAREN, // )
     DOT,
 
     END
