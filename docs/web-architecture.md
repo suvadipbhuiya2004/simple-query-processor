@@ -6,6 +6,34 @@ This repository is a C++ query processor. If you want a web terminal on top of i
 
 Let a user type SQL in a browser, send it to the backend, execute it with the existing engine, and show the result in a table view.
 
+## Set Up a Virtual Environment (Recommended)
+
+Before running the web server, it is best practice to create a Python virtual environment to manage dependencies like Flask.
+
+**On macOS and Linux:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install Flask
+```
+
+**On Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install Flask
+```
+
+## Run the Web Server
+
+To start the local web interface, ensure you have Python and Flask installed, then run the application script:
+
+```bash
+python app.py
+```
+
+Once the server is running, you can access the web terminal by opening `http://127.0.0.1:5000` in your browser.
+
 ## Recommended Structure
 
 ### 1. Frontend
