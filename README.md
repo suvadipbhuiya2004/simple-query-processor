@@ -1,17 +1,16 @@
 <div align="center">
   <a href="https://dbms-bongodb.vercel.app/">
-      <img src="./docs/BongoDB_logo.png">
+      <img src="./docs/bongodb.jpeg">
   </a>
 </div>
 <p align="center">
     <br>
-	<a href="#build-and-run">Build and Run</a> |
+	<a href="#build-and-run">Getting Started</a> |
 	<a href="#project-data-files">Project Data Files</a> |
     <a href="#methodology">Methodology</a> |
-    <a href="#web-architecture-extension">Web Architecture Extension</a> |
     <a href="https://github.com/suvadipbhuiya2004/simple-query-processor/blob/main/docs/LabProjectGuidelines-2026.pdf">Problem Statement</a> |
     <a href="https://github.com/suvadipbhuiya2004/simple-query-processor/blob/main/docs/Report.pdf">Report</a> |
-	<a href="#more-details">More Details</a> 
+	<a href="#more-details">Features</a> 
 </p>
 
 
@@ -123,10 +122,6 @@ Notes:
 
 For a simple explanation of how this engine works, query execution paths, and the overall architecture, see the [Project Methodology](./docs/methodology.md) document.
 
-## Web Architecture Extension
-
-If you want to add a web-based terminal on top of this C++ query processor, check out the [Web Architecture Guide](./docs/web-architecture.md). It outlines the recommended approach for building a decoupled frontend and backend API while keeping the engine as the execution core.
-
 ## More Details
 
-See [Features](docs/features.md) for what more features support
+For a complete overview of the currently implemented functionality and supported SQL operations, refer to the [Features](docs/features.md) document. It includes details about the core SQL commands, supported clauses, optimization features, and other capabilities available in the current version of the project.

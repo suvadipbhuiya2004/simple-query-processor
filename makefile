@@ -40,14 +40,6 @@ run: build
 start-cli: build
 	@./$(BUILD_DIR)/query_engine --repl
 
-web-install:
-	@python3 -m venv $(VENV_DIR)
-	@$(VENV_PY) -m pip install --upgrade pip
-	@$(VENV_PY) -m pip install -r web/requirements.txt
-
-web-run: build
-	@$(VENV_PY) web/app.py
-
 rebuild: clean build
 
 clean:
