@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://dbms-bongodb.vercel.app/">
-      <img src="./docs/BongoDB_logo.png">
+      <img src="./docs/bongodb.jpeg">
   </a>
 </div>
 <p align="center">
