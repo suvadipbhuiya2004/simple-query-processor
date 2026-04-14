@@ -276,6 +276,13 @@ namespace
         return ansi::colorize(text, color);
     }
 
+    void clearTerminalScreen()
+    {
+        // 2J: clear visible screen, 3J: clear scrollback, H: move cursor to top-left.
+        std::cout << "\x1b[2J\x1b[3J\x1b[H";
+        std::cout.flush();
+    }
+
 }
 
 QueryEngineCli::QueryEngineCli(QueryEngineApp &app) : app_(app) {}
@@ -301,13 +308,20 @@ int QueryEngineCli::run(const CliOptions &options)
 
 std::string QueryEngineCli::metaCommandHelp()
 {
-    return "REPL commands:\n"
-           "  .help             Show REPL help\n"
-           "  .tables           List loaded tables\n"
-           "  .schema <table>   Show table schema\n"
-           "  .run <file.sql>   Execute statements from file\n"
-           "  .clear            Clear terminal screen\n"
-           "  .quit | .exit     Exit terminal\n";
+    auto cmd = [&](const std::string& c, const std::string& desc) {
+    constexpr int width = 22;
+    std::string padded = c + std::string(width - c.size(), ' ');
+    return "  " + colorize(padded, ansi::kYellow) +
+           colorize(desc + "\n", ansi::kGray);
+    };
+
+    return colorize("REPL commands:\n", ansi::kWhite) +
+        cmd(".help", "Show REPL help") +
+        cmd(".tables", "List loaded tables") +
+        cmd(".schema <table>", "Show table schema") +
+        cmd(".run <file.sql>", "Execute statements from file") +
+        cmd(".clear", "Clear terminal screen") +
+        cmd(".quit | .exit", "Exit terminal");
 }
 
 int QueryEngineCli::runDefaultScript() const
@@ -555,7 +569,7 @@ bool QueryEngineCli::handleMetaCommand(const std::string &line, bool &shouldExit
     }
     if (command == ".clear")
     {
-        std::cout << "\x1b[2J\x1b[H";
+        clearTerminalScreen();
         return true;
     }
     if (command == ".tables")
